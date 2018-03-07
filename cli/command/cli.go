@@ -158,7 +158,13 @@ func (cli *DockerCli) Initialize(opts *cliflags.ClientOptions) error {
 	if err != nil {
 		return errors.Wrap(err, "Experimental field")
 	}
-	orchestrator := GetOrchestrator(hasExperimental, opts.Common.Orchestrator, cli.configFile.Orchestrator)
+
+	configVal := cli.configFile.Orchestrator
+	if env := cli.configFile.GetEnvironment(); env != nil {
+		configVal = string(env.DefaultOrchestrator)
+	}
+
+	orchestrator := GetOrchestrator(hasExperimental, opts.Common.Orchestrator, configVal)
 	cli.clientInfo = ClientInfo{
 		DefaultVersion:  cli.client.ClientVersion(),
 		HasExperimental: hasExperimental,
@@ -241,11 +247,36 @@ func NewDockerCli(in io.ReadCloser, out, err io.Writer) *DockerCli {
 	return &DockerCli{in: NewInStream(in), out: NewOutStream(out), err: err}
 }
 
+func shouldUseConfigFileEnvironment(opts *cliflags.CommonOptions, configFile *configfile.ConfigFile) bool {
+	if hasExperimental, err := isEnabled(configFile.Experimental); !hasExperimental || err != nil {
+		return false
+	}
+	if len(opts.Hosts) > 0 {
+		return false
+	}
+	if v, _ := os.LookupEnv("DOCKER_HOST"); v != "" {
+		return false
+	}
+	if configFile.GetEnvironment() == nil {
+		return false
+	}
+	return true
+}
+
 // NewAPIClientFromFlags creates a new APIClient from command line flags
 func NewAPIClientFromFlags(opts *cliflags.CommonOptions, configFile *configfile.ConfigFile) (client.APIClient, error) {
 	host, err := getServerHost(opts.Hosts, opts.TLSOptions)
+	tlsOptions := opts.TLSOptions
 	if err != nil {
 		return &client.Client{}, err
+	}
+
+	if shouldUseConfigFileEnvironment(opts, configFile) {
+		env := configFile.GetEnvironment()
+		if env != nil && env.Docker != nil {
+			host = env.Docker.Host
+			tlsOptions = env.Docker.TLSOptions()
+		}
 	}
 
 	customHeaders := configFile.HTTPHeaders
@@ -260,7 +291,7 @@ func NewAPIClientFromFlags(opts *cliflags.CommonOptions, configFile *configfile.
 	}
 
 	return client.NewClientWithOpts(
-		withHTTPClient(opts.TLSOptions),
+		withHTTPClient(tlsOptions),
 		client.WithHTTPHeaders(customHeaders),
 		client.WithVersion(verStr),
 		client.WithHost(host),

@@ -221,7 +221,7 @@ func getKubernetesVersion(dockerCli command.Cli, kubeConfig string) *kubernetesV
 		Kubernetes: "Unknown",
 		StackAPI:   "Unknown",
 	}
-	config, err := kubernetes.NewKubernetesConfig(kubeConfig)
+	config, err := kubernetes.NewKubernetesConfig(kubeConfig, dockerCli.ConfigFile().GetEnvironment())
 	if err != nil {
 		logrus.Debugf("failed to get Kubernetes configuration: %s", err)
 		return &version

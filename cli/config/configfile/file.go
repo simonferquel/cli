@@ -46,6 +46,8 @@ type ConfigFile struct {
 	Proxies              map[string]ProxyConfig      `json:"proxies,omitempty"`
 	Experimental         string                      `json:"experimental,omitempty"`
 	Orchestrator         string                      `json:"orchestrator,omitempty"`
+	Environments         map[string]Environment      `json:"environments,omitempty"`
+	CurrentEnvironment   string                      `json:"currentEnvironment,omitempty"`
 }
 
 // ProxyConfig contains proxy configuration settings
@@ -59,9 +61,10 @@ type ProxyConfig struct {
 // New initializes an empty configuration file for the given filename 'fn'
 func New(fn string) *ConfigFile {
 	return &ConfigFile{
-		AuthConfigs: make(map[string]types.AuthConfig),
-		HTTPHeaders: make(map[string]string),
-		Filename:    fn,
+		AuthConfigs:  make(map[string]types.AuthConfig),
+		HTTPHeaders:  make(map[string]string),
+		Environments: make(map[string]Environment),
+		Filename:     fn,
 	}
 }
 
@@ -100,6 +103,10 @@ func (configFile *ConfigFile) LegacyLoadFromReader(configData io.Reader) error {
 			configFile.AuthConfigs[k] = authConfig
 		}
 	}
+	if len(configFile.Environments) == 0 {
+		configFile.Environments["default"] = localEnvironment()
+		configFile.CurrentEnvironment = "default"
+	}
 	return nil
 }
 
@@ -118,6 +125,11 @@ func (configFile *ConfigFile) LoadFromReader(configData io.Reader) error {
 		ac.Auth = ""
 		ac.ServerAddress = addr
 		configFile.AuthConfigs[addr] = ac
+	}
+
+	if len(configFile.Environments) == 0 {
+		configFile.Environments["default"] = localEnvironment()
+		configFile.CurrentEnvironment = "default"
 	}
 	return nil
 }
@@ -306,4 +318,12 @@ func (configFile *ConfigFile) GetAllCredentials() (map[string]types.AuthConfig, 
 		auths[registryHostname] = newAuth
 	}
 	return auths, nil
+}
+
+// GetEnvironment returns the currently configured environment (if any)
+func (configFile *ConfigFile) GetEnvironment() *Environment {
+	if ev, ok := configFile.Environments[configFile.CurrentEnvironment]; ok {
+		return &ev
+	}
+	return nil
 }

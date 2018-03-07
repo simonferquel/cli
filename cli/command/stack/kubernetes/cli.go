@@ -58,7 +58,7 @@ func WrapCli(dockerCli command.Cli, opts Options) (*KubeCli, error) {
 			kubeConfig = filepath.Join(homedir.Get(), ".kube/config")
 		}
 	}
-	config, err := kubernetes.NewKubernetesConfig(kubeConfig)
+	config, err := kubernetes.NewKubernetesConfig(kubeConfig, dockerCli.ConfigFile().GetEnvironment())
 	if err != nil {
 		return nil, err
 	}
