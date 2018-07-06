@@ -38,7 +38,8 @@ func (o Orchestrator) HasAll() bool {
 	return o == OrchestratorAll
 }
 
-func normalize(value string) (Orchestrator, error) {
+// NormalizeOrchestrator parse and normalize an orchestrator value
+func NormalizeOrchestrator(value string) (Orchestrator, error) {
 	switch value {
 	case "kubernetes":
 		return OrchestratorKubernetes, nil
@@ -55,9 +56,9 @@ func normalize(value string) (Orchestrator, error) {
 
 // GetStackOrchestrator checks DOCKER_STACK_ORCHESTRATOR environment variable and configuration file
 // orchestrator value and returns user defined Orchestrator.
-func GetStackOrchestrator(flagValue, value string, stderr io.Writer) (Orchestrator, error) {
+func GetStackOrchestrator(flagValue string, dockerCli Cli, stderr io.Writer) (Orchestrator, error) {
 	// Check flag
-	if o, err := normalize(flagValue); o != orchestratorUnset {
+	if o, err := NormalizeOrchestrator(flagValue); o != orchestratorUnset {
 		return o, err
 	}
 	// Check environment variable
@@ -65,11 +66,29 @@ func GetStackOrchestrator(flagValue, value string, stderr io.Writer) (Orchestrat
 	if env == "" && os.Getenv(envVarDockerOrchestrator) != "" {
 		fmt.Fprintf(stderr, "WARNING: experimental environment variable %s is set. Please use %s instead\n", envVarDockerOrchestrator, envVarDockerStackOrchestrator)
 	}
-	if o, err := normalize(env); o != orchestratorUnset {
+	if o, err := NormalizeOrchestrator(env); o != orchestratorUnset {
 		return o, err
 	}
-	// Check specified orchestrator
-	if o, err := normalize(value); o != orchestratorUnset {
+	// if there is a current context, check context orchestrator
+	ctxName := dockerCli.CurrentContext()
+	if ctxName != "" && ctxName != ContextDefault && ctxName != ContextDockerHost {
+		rawMeta, err := dockerCli.ContextStore().GetContextMetadata(ctxName)
+		if err != nil {
+			return defaultOrchestrator, err
+		}
+		meta, err := GetContextMetadata(rawMeta)
+		if err != nil {
+			return defaultOrchestrator, err
+		}
+		if meta.StackOrchestrator != orchestratorUnset {
+			return meta.StackOrchestrator, nil
+		}
+		if meta.Orchestrator != orchestratorUnset {
+			return meta.Orchestrator, nil
+		}
+	}
+	// Check overall specified orchestrator
+	if o, err := NormalizeOrchestrator(dockerCli.ConfigFile().StackOrchestrator); o != orchestratorUnset {
 		return o, err
 	}
 	// Nothing set, use default orchestrator

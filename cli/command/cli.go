@@ -19,16 +19,23 @@ import (
 	registryclient "github.com/docker/cli/cli/registry/client"
 	"github.com/docker/cli/cli/trust"
 	dopts "github.com/docker/cli/opts"
+	"github.com/docker/context-store"
 	"github.com/docker/docker/api"
 	"github.com/docker/docker/api/types"
 	registrytypes "github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/client"
+	dcontext "github.com/docker/docker/client/context"
 	"github.com/docker/go-connections/tlsconfig"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/theupdateframework/notary"
 	notaryclient "github.com/theupdateframework/notary/client"
 	"github.com/theupdateframework/notary/passphrase"
+)
+
+const (
+	ContextDefault    = "<default>"
+	ContextDockerHost = "<DOCKER_HOST>"
 )
 
 // Streams is an interface which exposes the standard input and output streams
@@ -53,19 +60,23 @@ type Cli interface {
 	ManifestStore() manifeststore.Store
 	RegistryClient(bool) registryclient.RegistryClient
 	ContentTrustEnabled() bool
+	ContextStore() store.Store
+	CurrentContext() string
 }
 
 // DockerCli is an instance the docker command line client.
 // Instances of the client can be returned from NewDockerCli.
 type DockerCli struct {
-	configFile   *configfile.ConfigFile
-	in           *InStream
-	out          *OutStream
-	err          io.Writer
-	client       client.APIClient
-	serverInfo   ServerInfo
-	clientInfo   ClientInfo
-	contentTrust bool
+	configFile     *configfile.ConfigFile
+	in             *InStream
+	out            *OutStream
+	err            io.Writer
+	client         client.APIClient
+	serverInfo     ServerInfo
+	clientInfo     ClientInfo
+	contentTrust   bool
+	contextStore   store.Store
+	currentContext string
 }
 
 // DefaultVersion returns api.defaultVersion or DOCKER_API_VERSION if specified.
@@ -144,20 +155,30 @@ func (cli *DockerCli) RegistryClient(allowInsecure bool) registryclient.Registry
 	return registryclient.NewRegistryClient(resolver, UserAgent(), allowInsecure)
 }
 
+// ContextStore returns the context store
+func (cli *DockerCli) ContextStore() store.Store {
+	return cli.contextStore
+}
+
+// CurrentContext returns the current context name
+func (cli *DockerCli) CurrentContext() string {
+	return cli.currentContext
+}
+
 // Initialize the dockerCli runs initialization that must happen after command
 // line flags are parsed.
 func (cli *DockerCli) Initialize(opts *cliflags.ClientOptions) error {
 	cli.configFile = cliconfig.LoadDefaultConfigFile(cli.err)
 
 	var err error
-	cli.client, err = NewAPIClientFromFlags(opts.Common, cli.configFile)
+	cli.client, cli.currentContext, err = NewAPIClientFromFlags(opts.Common, cli.configFile)
 	if tlsconfig.IsErrEncryptedKey(err) {
 		passRetriever := passphrase.PromptRetrieverWithInOut(cli.In(), cli.Out(), nil)
-		newClient := func(password string) (client.APIClient, error) {
+		newClient := func(password string) (client.APIClient, string, error) {
 			opts.Common.TLSOptions.Passphrase = password
 			return NewAPIClientFromFlags(opts.Common, cli.configFile)
 		}
-		cli.client, err = getClientWithPassword(passRetriever, newClient)
+		cli.client, cli.currentContext, err = getClientWithPassword(passRetriever, newClient)
 	}
 	if err != nil {
 		return err
@@ -174,6 +195,9 @@ func (cli *DockerCli) Initialize(opts *cliflags.ClientOptions) error {
 	cli.clientInfo = ClientInfo{
 		DefaultVersion:  cli.client.ClientVersion(),
 		HasExperimental: hasExperimental,
+	}
+	if cli.contextStore, err = store.NewStore(cliconfig.ContextStoreDir()); err != nil {
+		return errors.Wrap(err, "Context store")
 	}
 	cli.initializeFromClient()
 	return nil
@@ -209,16 +233,16 @@ func (cli *DockerCli) initializeFromClient() {
 	cli.client.NegotiateAPIVersionPing(ping)
 }
 
-func getClientWithPassword(passRetriever notary.PassRetriever, newClient func(password string) (client.APIClient, error)) (client.APIClient, error) {
+func getClientWithPassword(passRetriever notary.PassRetriever, newClient func(password string) (client.APIClient, string, error)) (client.APIClient, string, error) {
 	for attempts := 0; ; attempts++ {
 		passwd, giveup, err := passRetriever("private", "encrypted TLS private", false, attempts)
 		if giveup || err != nil {
-			return nil, errors.Wrap(err, "private key is encrypted, but could not get passphrase")
+			return nil, "", errors.Wrap(err, "private key is encrypted, but could not get passphrase")
 		}
 
-		apiclient, err := newClient(passwd)
+		apiclient, ctxName, err := newClient(passwd)
 		if !tlsconfig.IsErrEncryptedKey(err) {
-			return apiclient, err
+			return apiclient, ctxName, err
 		}
 	}
 }
@@ -247,11 +271,7 @@ func NewDockerCli(in io.ReadCloser, out, err io.Writer, isTrusted bool) *DockerC
 }
 
 // NewAPIClientFromFlags creates a new APIClient from command line flags
-func NewAPIClientFromFlags(opts *cliflags.CommonOptions, configFile *configfile.ConfigFile) (client.APIClient, error) {
-	host, err := getServerHost(opts.Hosts, opts.TLSOptions)
-	if err != nil {
-		return &client.Client{}, err
-	}
+func NewAPIClientFromFlags(opts *cliflags.CommonOptions, configFile *configfile.ConfigFile) (client.APIClient, string, error) {
 
 	customHeaders := configFile.HTTPHeaders
 	if customHeaders == nil {
@@ -259,17 +279,64 @@ func NewAPIClientFromFlags(opts *cliflags.CommonOptions, configFile *configfile.
 	}
 	customHeaders["User-Agent"] = UserAgent()
 
-	verStr := api.DefaultVersion
-	if tmpStr := os.Getenv("DOCKER_API_VERSION"); tmpStr != "" {
-		verStr = tmpStr
-	}
+	if shouldUseLegacyAPIClient(opts) {
+		host, err := getServerHost(opts.Hosts, opts.TLSOptions)
+		if err != nil {
+			return &client.Client{}, "", err
+		}
 
-	return client.NewClientWithOpts(
-		withHTTPClient(opts.TLSOptions),
-		client.WithHTTPHeaders(customHeaders),
-		client.WithVersion(verStr),
-		client.WithHost(host),
-	)
+		verStr := api.DefaultVersion
+		if tmpStr := os.Getenv("DOCKER_API_VERSION"); tmpStr != "" {
+			verStr = tmpStr
+		}
+
+		cli, err := client.NewClientWithOpts(
+			withHTTPClient(opts.TLSOptions),
+			client.WithHTTPHeaders(customHeaders),
+			client.WithVersion(verStr),
+			client.WithHost(host),
+		)
+		if err != nil {
+			return nil, "", err
+		}
+		return cli, ContextDockerHost, nil
+	} else {
+		ctxName := opts.Context
+		if ctxName == "" {
+			ctxName = os.Getenv(dcontext.DockerContextEnvVar)
+		}
+		if ctxName == "" {
+			s, err := store.NewStore(cliconfig.ContextStoreDir())
+			if err != nil {
+				return nil, "", err
+			}
+			ctxName = s.GetCurrentContext()
+		}
+		cli, err := client.NewClientWithOpts(
+			client.WithContextStoreOrEnv(cliconfig.ContextStoreDir(), ctxName),
+			client.WithHTTPHeaders(customHeaders),
+		)
+		if err != nil {
+			return nil, "", err
+		}
+		if ctxName == "" {
+			ctxName = ContextDefault
+		}
+		return cli, ctxName, nil
+	}
+}
+
+func shouldUseLegacyAPIClient(opts *cliflags.CommonOptions) bool {
+	if opts.Context != "" {
+		return false
+	}
+	if len(opts.Hosts) > 0 {
+		return true
+	}
+	if _, present := os.LookupEnv("DOCKER_HOST"); present {
+		return true
+	}
+	return false
 }
 
 func getServerHost(hosts []string, tlsOptions *tlsconfig.Options) (string, error) {
