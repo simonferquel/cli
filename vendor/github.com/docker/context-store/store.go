@@ -1,10 +1,13 @@
 package store
 
 import (
+	"archive/tar"
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const configFileName = "config.json"
@@ -20,6 +23,8 @@ type Store interface {
 	ResetContextEndpointTLSMaterial(contextName string, endpointName string, data *EndpointTLSData) error
 	ListContextTLSFiles(name string) (map[string]EndpointFiles, error)
 	GetContextTLSData(contextName, endpointName, fileName string) ([]byte, error)
+	Export(name string) io.ReadCloser
+	Import(name string, reader io.Reader) error
 }
 type store struct {
 	configFile     string
@@ -146,6 +151,120 @@ func (s *store) ListContextTLSFiles(name string) (map[string]EndpointFiles, erro
 
 func (s *store) GetContextTLSData(contextName, endpointName, fileName string) ([]byte, error) {
 	return s.tls.getData(contextName, endpointName, fileName)
+}
+
+func (s *store) Export(name string) io.ReadCloser {
+	reader, writer := io.Pipe()
+	go func() {
+		tw := tar.NewWriter(writer)
+		defer tw.Flush()
+		defer tw.Close()
+		defer writer.Close()
+		meta, err := s.meta.get(name)
+		if err != nil {
+			writer.CloseWithError(err)
+			return
+		}
+		metaBytes, err := json.Marshal(&meta)
+		if err != nil {
+			writer.CloseWithError(err)
+			return
+		}
+		if err = tw.WriteHeader(&tar.Header{
+			Name: metaFile,
+			Mode: 0644,
+			Size: int64(len(metaBytes)),
+		}); err != nil {
+			writer.CloseWithError(err)
+			return
+		}
+		if _, err = tw.Write(metaBytes); err != nil {
+			writer.CloseWithError(err)
+			return
+		}
+		if err = appendDirToArchive(s.tls.contextDir(name), "tls/", tw); err != nil {
+			writer.CloseWithError(err)
+			return
+		}
+	}()
+	return reader
+}
+
+func (s *store) Import(name string, reader io.Reader) error {
+	tr := tar.NewReader(reader)
+	metaDir := s.meta.contextDir(name)
+	if err := os.MkdirAll(metaDir, 0755); err != nil {
+		return err
+	}
+	tlsDir := s.tls.contextDir(name)
+	if err := os.MkdirAll(tlsDir, 0700); err != nil {
+		return err
+	}
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if hdr.Name == metaFile {
+			data, err := ioutil.ReadAll(tr)
+			if err != nil {
+				return err
+			}
+			if err = ioutil.WriteFile(filepath.Join(metaDir, metaFile), data, 0644); err != nil {
+				return err
+			}
+		} else if strings.HasPrefix(hdr.Name, "tls/") {
+			relative := strings.TrimPrefix(hdr.Name, "tls/")
+			path := filepath.Join(tlsDir, relative)
+			dir := filepath.Dir(path)
+			if err = os.MkdirAll(dir, 0700); err != nil {
+				return err
+			}
+			data, err := ioutil.ReadAll(tr)
+			if err != nil {
+				return err
+			}
+			if err = ioutil.WriteFile(path, data, 0600); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func appendDirToArchive(path, inArchivePrefix string, tw *tar.Writer) error {
+	entries, err := ioutil.ReadDir(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			if err = appendDirToArchive(filepath.Join(path, entry.Name()), inArchivePrefix+entry.Name()+"/", tw); err != nil {
+				return err
+			}
+		} else {
+			if err = tw.WriteHeader(&tar.Header{
+				Mode: 0600,
+				Name: inArchivePrefix + entry.Name(),
+				Size: entry.Size(),
+			}); err != nil {
+				return err
+			}
+			bytes, err := ioutil.ReadFile(filepath.Join(path, entry.Name()))
+			if err != nil {
+				return err
+			}
+			if _, err = tw.Write(bytes); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 type config struct {
