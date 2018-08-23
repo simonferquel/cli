@@ -20,6 +20,7 @@ func NewContextCommand(dockerCli command.Cli) *cobra.Command {
 		newCreateCommand(dockerCli),
 		newListCommand(dockerCli),
 		newUseCommand(dockerCli),
+		newExportCommand(dockerCli),
 	)
 	return cmd
 }
