@@ -25,6 +25,7 @@ type Store interface {
 	GetContextTLSData(contextName, endpointName, fileName string) ([]byte, error)
 	Export(name string) io.ReadCloser
 	Import(name string, reader io.Reader) error
+	Remove(name string) error
 }
 type store struct {
 	configFile     string
@@ -232,6 +233,13 @@ func (s *store) Import(name string, reader io.Reader) error {
 			}
 		}
 	}
+}
+
+func (s *store) Remove(name string) error {
+	if err := s.meta.remove(name); err != nil {
+		return err
+	}
+	return s.tls.removeAllContextData(name)
 }
 
 func appendDirToArchive(path, inArchivePrefix string, tw *tar.Writer) error {
