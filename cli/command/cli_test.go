@@ -31,7 +31,7 @@ func TestNewAPIClientFromFlags(t *testing.T) {
 			"My-Header": "Custom-Value",
 		},
 	}
-	apiclient, err := NewAPIClientFromFlags(opts, configFile)
+	apiclient, _, err := NewAPIClientFromFlags(opts, configFile)
 	assert.NilError(t, err)
 	assert.Check(t, is.Equal(host, apiclient.DaemonHost()))
 
@@ -69,7 +69,7 @@ func TestNewAPIClientFromFlagsWithAPIVersionFromEnv(t *testing.T) {
 
 	opts := &flags.CommonOptions{}
 	configFile := &configfile.ConfigFile{}
-	apiclient, err := NewAPIClientFromFlags(opts, configFile)
+	apiclient, _, err := NewAPIClientFromFlags(opts, configFile)
 	assert.NilError(t, err)
 	assert.Check(t, is.Equal(customVersion, apiclient.ClientVersion()))
 }
@@ -226,17 +226,17 @@ func TestGetClientWithPassword(t *testing.T) {
 				}
 			}
 
-			newClient := func(currentPassword string) (client.APIClient, error) {
+			newClient := func(currentPassword string) (client.APIClient, string, error) {
 				if testcase.newClientErr != nil {
-					return nil, testcase.newClientErr
+					return nil, "", testcase.newClientErr
 				}
 				if currentPassword == expected {
-					return &client.Client{}, nil
+					return &client.Client{}, "", nil
 				}
-				return &client.Client{}, x509.IncorrectPasswordError
+				return &client.Client{}, "", x509.IncorrectPasswordError
 			}
 
-			_, err := getClientWithPassword(passRetriever, newClient)
+			_, _, err := getClientWithPassword(passRetriever, newClient)
 			if testcase.expectedErr != "" {
 				assert.ErrorContains(t, err, testcase.expectedErr)
 				return

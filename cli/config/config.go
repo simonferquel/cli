@@ -35,6 +35,11 @@ func Dir() string {
 	return configDir
 }
 
+// ContextStoreDir returns the directory the docker contexts are stored in
+func ContextStoreDir() string {
+	return filepath.Join(Dir(), "contexts")
+}
+
 // SetDir sets the directory the configuration file is stored in
 func SetDir(dir string) {
 	configDir = dir

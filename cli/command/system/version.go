@@ -22,6 +22,7 @@ import (
 
 var versionTemplate = `{{with .Client -}}
 Client:{{if ne .Platform.Name ""}} {{.Platform.Name}}{{end}}
+ Context: {{.Context}}
  Version:	{{.Version}}
  API version:	{{.APIVersion}}{{if ne .APIVersion .DefaultAPIVersion}} (downgraded from {{.DefaultAPIVersion}}){{end}}
  Go version:	{{.GoVersion}}
@@ -77,6 +78,7 @@ type clientVersion struct {
 	Arch              string
 	BuildTime         string `json:",omitempty"`
 	Experimental      bool
+	Context           string
 }
 
 type kubernetesVersion struct {
@@ -126,7 +128,7 @@ func runVersion(dockerCli command.Cli, opts *versionOptions) error {
 		return cli.StatusError{StatusCode: 64, Status: err.Error()}
 	}
 
-	orchestrator, err := command.GetStackOrchestrator("", dockerCli.ConfigFile().StackOrchestrator, dockerCli.Err())
+	orchestrator, err := command.GetStackOrchestrator("", dockerCli, dockerCli.Err())
 	if err != nil {
 		return cli.StatusError{StatusCode: 64, Status: err.Error()}
 	}
@@ -143,6 +145,7 @@ func runVersion(dockerCli command.Cli, opts *versionOptions) error {
 			Os:                runtime.GOOS,
 			Arch:              runtime.GOARCH,
 			Experimental:      dockerCli.ClientInfo().HasExperimental,
+			Context:           dockerCli.CurrentContext(),
 		},
 	}
 

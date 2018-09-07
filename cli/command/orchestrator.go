@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	cliconfig "github.com/docker/cli/cli/config"
 )
 
 // Orchestrator type acts as an enum describing supported orchestrators.
@@ -44,7 +46,7 @@ func normalize(value string) (Orchestrator, error) {
 		return OrchestratorKubernetes, nil
 	case "swarm":
 		return OrchestratorSwarm, nil
-	case "":
+	case "", "unset":
 		return orchestratorUnset, nil
 	case "all":
 		return OrchestratorAll, nil
@@ -53,9 +55,14 @@ func normalize(value string) (Orchestrator, error) {
 	}
 }
 
+// NormalizeOrchestrator parses an orchestrator value and check if it is valid
+func NormalizeOrchestrator(value string) (Orchestrator, error) {
+	return normalize(value)
+}
+
 // GetStackOrchestrator checks DOCKER_STACK_ORCHESTRATOR environment variable and configuration file
 // orchestrator value and returns user defined Orchestrator.
-func GetStackOrchestrator(flagValue, value string, stderr io.Writer) (Orchestrator, error) {
+func GetStackOrchestrator(flagValue string, dockerCli Cli, stderr io.Writer) (Orchestrator, error) {
 	// Check flag
 	if o, err := normalize(flagValue); o != orchestratorUnset {
 		return o, err
@@ -68,8 +75,27 @@ func GetStackOrchestrator(flagValue, value string, stderr io.Writer) (Orchestrat
 	if o, err := normalize(env); o != orchestratorUnset {
 		return o, err
 	}
-	// Check specified orchestrator
-	if o, err := normalize(value); o != orchestratorUnset {
+	// if there is a current context, check context orchestrator
+	ctxName := dockerCli.CurrentContext()
+	if ctxName != "" && ctxName != ContextDockerHost {
+		rawMeta, err := dockerCli.ContextStore().GetContextMetadata(ctxName)
+		if err != nil {
+			return defaultOrchestrator, err
+		}
+		meta, err := GetContextMetadata(rawMeta)
+		if err != nil {
+			return defaultOrchestrator, err
+		}
+		if meta.StackOrchestrator != orchestratorUnset {
+			return meta.StackOrchestrator, nil
+		}
+	}
+	// Check specified orchestrator in global config file
+	configFile := dockerCli.ConfigFile()
+	if configFile == nil {
+		configFile = cliconfig.LoadDefaultConfigFile(dockerCli.Err())
+	}
+	if o, err := normalize(configFile.StackOrchestrator); o != orchestratorUnset {
 		return o, err
 	}
 	// Nothing set, use default orchestrator
