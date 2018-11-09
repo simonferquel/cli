@@ -25,6 +25,7 @@ func NewContextCommand(dockerCli command.Cli) *cobra.Command {
 		newRemoveCommand(dockerCli),
 		newSetDockerEndpointCommand(dockerCli),
 		newSetKubernetesEndpointCommand(dockerCli),
+		newSetOptionsCommand(dockerCli),
 	)
 	return cmd
 }
