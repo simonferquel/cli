@@ -16,7 +16,7 @@ func newSetDockerEndpointCommand(dockerCli command.Cli) *cobra.Command {
 		Args:  cli.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
-			endpoint, err := opts.toEndpoint(name)
+			endpoint, err := opts.toEndpoint(dockerCli, name)
 			if err != nil {
 				return errors.Wrap(err, "unable to create docker endpoint config")
 			}

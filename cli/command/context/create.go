@@ -37,6 +37,7 @@ type dockerEndpointOptions struct {
 	cert          string //--moby-cert string: path to a client cert file
 	key           string //--moby-key string: path to a client key file
 	skipTLSVerify bool
+	fromEnv       bool
 }
 
 func (o *dockerEndpointOptions) addFlags(flags *pflag.FlagSet) {
@@ -46,9 +47,18 @@ func (o *dockerEndpointOptions) addFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&o.cert, "docker-tls-cert", "", "path to the cert file to authenticate to the docker endpoint")
 	flags.StringVar(&o.key, "docker-tls-key", "", "path to the key file to authenticate to the docker endpoint")
 	flags.BoolVar(&o.skipTLSVerify, "docker-tls-skip-verify", false, "skip tls verify when connecting to the docker endpoint")
+	flags.BoolVar(&o.fromEnv, "from-env", false, "convert the current env-variable based configuration to a context")
 }
 
-func (o *dockerEndpointOptions) toEndpoint(contextName string) (docker.Endpoint, error) {
+func (o *dockerEndpointOptions) toEndpoint(cli command.Cli, contextName string) (docker.Endpoint, error) {
+	if o.fromEnv {
+		if cli.CurrentContext() != command.ContextDockerHost {
+			return docker.Endpoint{}, errors.New("cannot create a context from environment when a context is in use")
+		}
+		ep := cli.DockerEndpoint()
+		ep.ContextName = contextName
+		return ep, nil
+	}
 	tlsData, err := context.TLSDataFromFiles(o.ca, o.cert, o.key)
 	if err != nil {
 		return docker.Endpoint{}, err
@@ -123,7 +133,7 @@ func loadFileIfNotEmpty(path string) ([]byte, error) {
 	return ioutil.ReadFile(path)
 }
 
-func (o *createOptions) process(s store.Store) error {
+func (o *createOptions) process(cli command.Cli, s store.Store) error {
 	if _, err := s.GetContextMetadata(o.name); !os.IsNotExist(err) {
 		if err != nil {
 			return errors.Wrap(err, "error while getting existing contexts")
@@ -134,7 +144,7 @@ func (o *createOptions) process(s store.Store) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to parse default-stack-orchestrator")
 	}
-	dockerEP, err := o.docker.toEndpoint(o.name)
+	dockerEP, err := o.docker.toEndpoint(cli, o.name)
 	if err != nil {
 		return errors.Wrap(err, "unable to create docker endpoint config")
 	}
@@ -172,7 +182,7 @@ func newCreateCommand(dockerCli command.Cli) *cobra.Command {
 		Args:  cli.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.name = args[0]
-			return opts.process(dockerCli.ContextStore())
+			return opts.process(dockerCli, dockerCli.ContextStore())
 		},
 	}
 

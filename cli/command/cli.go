@@ -62,6 +62,7 @@ type Cli interface {
 	ContextStore() store.Store
 	CurrentContext() string
 	StackOrchestrator(flagValue string) (Orchestrator, error)
+	DockerEndpoint() docker.Endpoint
 }
 
 // DockerCli is an instance the docker command line client.
@@ -78,6 +79,7 @@ type DockerCli struct {
 	newContainerizeClient func(string) (clitypes.ContainerizedClient, error)
 	contextStore          store.Store
 	currentContext        string
+	dockerEndpoint        docker.Endpoint
 }
 
 // DefaultVersion returns api.defaultVersion or DOCKER_API_VERSION if specified.
@@ -181,6 +183,7 @@ func (cli *DockerCli) Initialize(opts *cliflags.ClientOptions) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to resolve docker endpoint")
 	}
+	cli.dockerEndpoint = endpoint
 
 	cli.client, err = newAPIClientFromEndpoint(endpoint, cli.configFile)
 	if tlsconfig.IsErrEncryptedKey(err) {
@@ -370,6 +373,11 @@ func (cli *DockerCli) StackOrchestrator(flagValue string) (Orchestrator, error) 
 	}
 
 	return GetStackOrchestrator(flagValue, ctxOrchestrator, configFile.StackOrchestrator, cli.Err())
+}
+
+// DockerEndpoint returns the current docker endpoint
+func (cli *DockerCli) DockerEndpoint() docker.Endpoint {
+	return cli.dockerEndpoint
 }
 
 // ServerInfo stores details about the supported features and platform of the
