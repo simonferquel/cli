@@ -25,7 +25,7 @@ type Endpoint struct {
 
 // WithTLSData loads TLS materials for the endpoint
 func (c *EndpointMeta) WithTLSData(s store.Store) (Endpoint, error) {
-	tlsData, err := context.LoadTLSData(s, c.ContextName, kubernetesEndpointKey)
+	tlsData, err := context.LoadTLSData(s, c.ContextName, KubernetesEndpointKey)
 	if err != nil {
 		return Endpoint{}, err
 	}
@@ -60,11 +60,11 @@ func (c *Endpoint) KubernetesConfig() (clientcmd.ClientConfig, error) {
 
 // EndpointFromContext extracts kubernetes endpoint info from current context
 func EndpointFromContext(name string, metadata store.ContextMetadata) *EndpointMeta {
-	ep, ok := metadata.Endpoints[kubernetesEndpointKey]
+	ep, ok := metadata.Endpoints[KubernetesEndpointKey]
 	if !ok {
 		return nil
 	}
-	commonMeta := context.EndpointFromContext(name, kubernetesEndpointKey, metadata)
+	commonMeta := context.EndpointFromContext(name, KubernetesEndpointKey, metadata)
 	if commonMeta == nil {
 		return nil
 	}

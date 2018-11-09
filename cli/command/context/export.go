@@ -61,7 +61,7 @@ func runExport(dockerCli command.Cli, opts *exportOptions) error {
 		_, err = io.Copy(f, reader)
 		return err
 	}
-	kubernetesEndpointMeta := kubernetes.Parse(opts.contextName, ctxMeta)
+	kubernetesEndpointMeta := kubernetes.EndpointFromContext(opts.contextName, ctxMeta)
 	if kubernetesEndpointMeta == nil {
 		return fmt.Errorf("context %q has no kubernetes endpoint", opts.contextName)
 	}

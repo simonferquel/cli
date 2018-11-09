@@ -1,12 +1,12 @@
 package context
 
 import (
-	"github.com/docker/cli/cli/context/common"
 	"io/ioutil"
 	"os"
 
 	"github.com/docker/cli/cli"
 	"github.com/docker/cli/cli/command"
+	"github.com/docker/cli/cli/context"
 	"github.com/docker/cli/cli/context/docker"
 	"github.com/docker/cli/cli/context/kubernetes"
 	"github.com/docker/cli/cli/context/store"
@@ -20,7 +20,7 @@ type createOptions struct {
 	description              string // --description string: set the description
 	defaultStackOrchestrator string
 	docker                   dockerEndpointOptions
-	kubernetes               kubernetedEndpointOptions
+	kubernetes               kubernetesEndpointOptions
 }
 
 func (o *createOptions) addFlags(flags *pflag.FlagSet) {
@@ -49,13 +49,13 @@ func (o *dockerEndpointOptions) addFlags(flags *pflag.FlagSet) {
 }
 
 func (o *dockerEndpointOptions) toEndpoint(contextName string) (docker.Endpoint, error) {
-	tlsData, err := common.TLSDataFromFiles(o.ca, o.cert, o.key)
+	tlsData, err := context.TLSDataFromFiles(o.ca, o.cert, o.key)
 	if err != nil {
 		return docker.Endpoint{}, err
 	}
 	return docker.Endpoint{
 		EndpointMeta: docker.EndpointMeta{
-			EndpointMeta: common.EndpointMeta{
+			EndpointMetaBase: context.EndpointMetaBase{
 				ContextName:   contextName,
 				Host:          o.host,
 				SkipTLSVerify: o.skipTLSVerify,
@@ -66,7 +66,7 @@ func (o *dockerEndpointOptions) toEndpoint(contextName string) (docker.Endpoint,
 	}, nil
 }
 
-type kubernetedEndpointOptions struct {
+type kubernetesEndpointOptions struct {
 	server            string //--kubernetes-server string: kubernetes api server address
 	ca                string //--kubernetes-ca string: path to a CA file
 	cert              string //--kubernetes-cert string: path to a client cert file
@@ -77,8 +77,8 @@ type kubernetedEndpointOptions struct {
 	kubeconfigContext string //--kubernetes-kubeconfig-context string: name of the kubernetes cli config file context to use
 }
 
-func (o *kubernetedEndpointOptions) addFlags(flags *pflag.FlagSet) {
-	flags.StringVar(&o.server, "kubernetes-host", "", "required: specify the docker endpoint on wich to connect")
+func (o *kubernetesEndpointOptions) addFlags(flags *pflag.FlagSet) {
+	flags.StringVar(&o.server, "kubernetes-host", "", "specify the kubernetes endpoint on wich to connect")
 	flags.StringVar(&o.ca, "kubernetes-tls-ca", "", "path to the ca file to validate kubernetes endpoint")
 	flags.StringVar(&o.cert, "kubernetes-tls-cert", "", "path to the cert file to authenticate to the kubernetes endpoint")
 	flags.StringVar(&o.key, "kubernetes-tls-key", "", "path to the key file to authenticate to the kubernetes endpoint")
@@ -88,7 +88,7 @@ func (o *kubernetedEndpointOptions) addFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&o.kubeconfigContext, "kubernetes-kubeconfig-context", "", `context to use in the kubeconfig file referenced in "kubernetes-kubeconfig"`)
 }
 
-func (o *kubernetedEndpointOptions) toEndpoint(contextName string) (*kubernetes.Endpoint, error) {
+func (o *kubernetesEndpointOptions) toEndpoint(contextName string) (*kubernetes.Endpoint, error) {
 	if o.kubeconfigFile != "" {
 		ep, err := kubernetes.FromKubeConfig(contextName, o.kubeconfigFile, o.kubeconfigContext, o.defaultNamespace)
 		if err != nil {
@@ -97,13 +97,13 @@ func (o *kubernetedEndpointOptions) toEndpoint(contextName string) (*kubernetes.
 		return &ep, nil
 	}
 	if o.server != "" {
-		tlsData, err := common.TLSDataFromFiles(o.ca, o.cert, o.key)
+		tlsData, err := context.TLSDataFromFiles(o.ca, o.cert, o.key)
 		if err != nil {
 			return nil, err
 		}
 		return &kubernetes.Endpoint{
 			EndpointMeta: kubernetes.EndpointMeta{
-				EndpointMeta: common.EndpointMeta{
+				EndpointMetaBase: context.EndpointMetaBase{
 					ContextName:   contextName,
 					Host:          o.server,
 					SkipTLSVerify: o.skipTLSVerify,

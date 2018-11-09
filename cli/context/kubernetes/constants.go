@@ -1,6 +1,7 @@
 package kubernetes
 
 const (
-	kubernetesEndpointKey = "kubernetes"
+	// KubernetesEndpointKey is the endpoint name within the context
+	KubernetesEndpointKey = "kubernetes"
 	defaultNamespaceKey   = "defaultNamespace"
 )

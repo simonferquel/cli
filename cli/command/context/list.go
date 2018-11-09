@@ -48,11 +48,11 @@ func runList(dockerCli command.Cli, opts *listOptions) error {
 		if err != nil {
 			return err
 		}
-		dockerEndpoint, err := docker.Parse(name, rawMeta)
+		dockerEndpoint, err := docker.EndpointFromContext(name, rawMeta)
 		if err != nil {
 			return err
 		}
-		kubernetesEndpoint := kubernetes.Parse(name, rawMeta)
+		kubernetesEndpoint := kubernetes.EndpointFromContext(name, rawMeta)
 		kubEndpointText := ""
 		if kubernetesEndpoint != nil {
 			kubEndpointText = fmt.Sprintf("%s (%s)", kubernetesEndpoint.Host, kubernetesEndpoint.DefaultNamespace)

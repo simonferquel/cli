@@ -30,11 +30,11 @@ func Save(s store.Store, endpoint Endpoint) error {
 	case err != nil:
 		return err
 	}
-	ctxMeta.Endpoints[kubernetesEndpointKey] = endpoint.ToStoreMeta()
+	ctxMeta.Endpoints[KubernetesEndpointKey] = endpoint.ToStoreMeta()
 	if err := s.CreateOrUpdateContext(endpoint.ContextName, ctxMeta); err != nil {
 		return err
 	}
-	return s.ResetContextEndpointTLSMaterial(endpoint.ContextName, kubernetesEndpointKey, endpoint.TLSData.ToStoreTLSData())
+	return s.ResetContextEndpointTLSMaterial(endpoint.ContextName, KubernetesEndpointKey, endpoint.TLSData.ToStoreTLSData())
 }
 
 // FromKubeConfig creates a Kubernetes endpoint from a Kubeconfig file
