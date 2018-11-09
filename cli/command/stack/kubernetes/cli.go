@@ -55,7 +55,10 @@ func WrapCli(dockerCli command.Cli, opts Options) (*KubeCli, error) {
 	cli := &KubeCli{
 		Cli: dockerCli,
 	}
-	clientConfig := kubernetes.NewKubernetesConfig(opts.Config)
+	clientConfig, err := kubernetes.NewKubernetesConfig(dockerCli.ContextStore(), dockerCli.CurrentContext(), opts.Config)
+	if err != nil {
+		return nil, err
+	}
 
 	cli.kubeNamespace = opts.Namespace
 	if opts.Namespace == "" {

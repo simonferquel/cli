@@ -126,7 +126,7 @@ func runVersion(dockerCli command.Cli, opts *versionOptions) error {
 		return cli.StatusError{StatusCode: 64, Status: err.Error()}
 	}
 
-	orchestrator, err := command.GetStackOrchestrator("", dockerCli.ConfigFile().StackOrchestrator, dockerCli.Err())
+	orchestrator, err := dockerCli.StackOrchestrator("")
 	if err != nil {
 		return cli.StatusError{StatusCode: 64, Status: err.Error()}
 	}
@@ -151,7 +151,7 @@ func runVersion(dockerCli command.Cli, opts *versionOptions) error {
 		vd.Server = &sv
 		var kubeVersion *kubernetesVersion
 		if orchestrator.HasKubernetes() {
-			kubeVersion = getKubernetesVersion(opts.kubeConfig)
+			kubeVersion = getKubernetesVersion(dockerCli, opts.kubeConfig)
 		}
 		foundEngine := false
 		foundKubernetes := false
@@ -230,15 +230,19 @@ func getDetailsOrder(v types.ComponentVersion) []string {
 	return out
 }
 
-func getKubernetesVersion(kubeConfig string) *kubernetesVersion {
+func getKubernetesVersion(dockerCli command.Cli, kubeConfig string) *kubernetesVersion {
 	version := kubernetesVersion{
 		Kubernetes: "Unknown",
 		StackAPI:   "Unknown",
 	}
-	clientConfig := kubernetes.NewKubernetesConfig(kubeConfig)
-	config, err := clientConfig.ClientConfig()
+	clientConfig, err := kubernetes.NewKubernetesConfig(dockerCli.ContextStore(), dockerCli.CurrentContext(), kubeConfig)
 	if err != nil {
 		logrus.Debugf("failed to get Kubernetes configuration: %s", err)
+		return &version
+	}
+	config, err := clientConfig.ClientConfig()
+	if err != nil {
+		logrus.Debugf("failed to get Kubernetes client config: %s", err)
 		return &version
 	}
 	kubeClient, err := kubernetesClient.NewForConfig(config)

@@ -9,6 +9,7 @@ import (
 
 	cliconfig "github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
+	"github.com/docker/cli/cli/context/store"
 	"github.com/docker/cli/cli/flags"
 	"github.com/docker/docker/api"
 	"github.com/docker/docker/api/types"
@@ -31,7 +32,9 @@ func TestNewAPIClientFromFlags(t *testing.T) {
 			"My-Header": "Custom-Value",
 		},
 	}
-	apiclient, err := NewAPIClientFromFlags(opts, configFile)
+	ep, err := resolveDockerEndpoint(emptyContextStore{}, ContextDockerHost, opts)
+	assert.NilError(t, err)
+	apiclient, err := newAPIClientFromEndpoint(ep, configFile)
 	assert.NilError(t, err)
 	assert.Check(t, is.Equal(host, apiclient.DaemonHost()))
 
@@ -51,7 +54,9 @@ func TestNewAPIClientFromFlagsForDefaultSchema(t *testing.T) {
 			"My-Header": "Custom-Value",
 		},
 	}
-	apiclient, err := NewAPIClientFromFlags(opts, configFile)
+	ep, err := resolveDockerEndpoint(emptyContextStore{}, ContextDockerHost, opts)
+	assert.NilError(t, err)
+	apiclient, err := newAPIClientFromEndpoint(ep, configFile)
 	assert.NilError(t, err)
 	assert.Check(t, is.Equal("tcp://localhost"+host, apiclient.DaemonHost()))
 
@@ -69,7 +74,9 @@ func TestNewAPIClientFromFlagsWithAPIVersionFromEnv(t *testing.T) {
 
 	opts := &flags.CommonOptions{}
 	configFile := &configfile.ConfigFile{}
-	apiclient, err := NewAPIClientFromFlags(opts, configFile)
+	ep, err := resolveDockerEndpoint(emptyContextStore{}, ContextDockerHost, opts)
+	assert.NilError(t, err)
+	apiclient, err := newAPIClientFromEndpoint(ep, configFile)
 	assert.NilError(t, err)
 	assert.Check(t, is.Equal(customVersion, apiclient.ClientVersion()))
 }
@@ -246,3 +253,48 @@ func TestGetClientWithPassword(t *testing.T) {
 		})
 	}
 }
+
+type emptyContextStore struct {
+}
+
+func (emptyContextStore) GetCurrentContext() string {
+	return ""
+}
+
+func (emptyContextStore) SetCurrentContext(name string) error {
+	return nil
+}
+
+func (emptyContextStore) ListContexts() (map[string]store.ContextMetadata, error) {
+	return nil, nil
+}
+
+func (emptyContextStore) CreateOrUpdateContext(name string, meta store.ContextMetadata) error {
+	return nil
+}
+
+func (emptyContextStore) RemoveContext(name string) error {
+	return nil
+}
+
+func (emptyContextStore) GetContextMetadata(name string) (store.ContextMetadata, error) {
+	return store.ContextMetadata{}, nil
+}
+
+func (emptyContextStore) ResetContextTLSMaterial(name string, data *store.ContextTLSData) error {
+	return nil
+}
+
+func (emptyContextStore) ResetContextEndpointTLSMaterial(contextName string, endpointName string, data *store.EndpointTLSData) error {
+	return nil
+}
+
+func (emptyContextStore) ListContextTLSFiles(name string) (map[string]store.EndpointFiles, error) {
+	return nil, nil
+}
+
+func (emptyContextStore) GetContextTLSData(contextName, endpointName, fileName string) ([]byte, error) {
+	return nil, nil
+}
+
+var _ store.Store = emptyContextStore{}
