@@ -36,6 +36,6 @@ func newSetKubernetesEndpointCommand(dockerCli command.Cli) *cobra.Command {
 		},
 	}
 
-	opts.addFlags(cmd.Flags())
+	opts.addFlags(cmd.Flags(), "")
 	return cmd
 }

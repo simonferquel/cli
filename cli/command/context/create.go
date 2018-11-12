@@ -3,6 +3,7 @@ package context
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/docker/cli/cli"
 	"github.com/docker/cli/cli/command"
@@ -10,6 +11,7 @@ import (
 	"github.com/docker/cli/cli/context/docker"
 	"github.com/docker/cli/cli/context/kubernetes"
 	"github.com/docker/cli/cli/context/store"
+	"github.com/docker/docker/pkg/homedir"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -26,8 +28,8 @@ type createOptions struct {
 func (o *createOptions) addFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&o.description, "description", "", "set the description of the context")
 	flags.StringVar(&o.defaultStackOrchestrator, "default-stack-orchestrator", "", "set the default orchestrator for stack operations if different to the default one, to use with this context (swarm|kubernetes|all)")
-	o.docker.addFlags(flags)
-	o.kubernetes.addFlags(flags)
+	o.docker.addFlags(flags, "docker-")
+	o.kubernetes.addFlags(flags, "kubernetes-")
 }
 
 type dockerEndpointOptions struct {
@@ -40,14 +42,14 @@ type dockerEndpointOptions struct {
 	fromEnv       bool
 }
 
-func (o *dockerEndpointOptions) addFlags(flags *pflag.FlagSet) {
-	flags.StringVar(&o.host, "docker-host", "", "required: specify the docker endpoint on wich to connect")
-	flags.StringVar(&o.apiVersion, "docker-api-version", "", "override negociated api version")
-	flags.StringVar(&o.ca, "docker-tls-ca", "", "path to the ca file to validate docker endpoint")
-	flags.StringVar(&o.cert, "docker-tls-cert", "", "path to the cert file to authenticate to the docker endpoint")
-	flags.StringVar(&o.key, "docker-tls-key", "", "path to the key file to authenticate to the docker endpoint")
-	flags.BoolVar(&o.skipTLSVerify, "docker-tls-skip-verify", false, "skip tls verify when connecting to the docker endpoint")
-	flags.BoolVar(&o.fromEnv, "from-env", false, "convert the current env-variable based configuration to a context")
+func (o *dockerEndpointOptions) addFlags(flags *pflag.FlagSet, prefix string) {
+	flags.StringVar(&o.host, prefix+"host", "", "required: specify the docker endpoint on wich to connect")
+	flags.StringVar(&o.apiVersion, prefix+"api-version", "", "override negociated api version")
+	flags.StringVar(&o.ca, prefix+"tls-ca", "", "path to the ca file to validate docker endpoint")
+	flags.StringVar(&o.cert, prefix+"tls-cert", "", "path to the cert file to authenticate to the docker endpoint")
+	flags.StringVar(&o.key, prefix+"tls-key", "", "path to the key file to authenticate to the docker endpoint")
+	flags.BoolVar(&o.skipTLSVerify, prefix+"tls-skip-verify", false, "skip tls verify when connecting to the docker endpoint")
+	flags.BoolVar(&o.fromEnv, prefix+"from-env", false, "convert the current env-variable based configuration to a context")
 }
 
 func (o *dockerEndpointOptions) toEndpoint(cli command.Cli, contextName string) (docker.Endpoint, error) {
@@ -85,20 +87,29 @@ type kubernetesEndpointOptions struct {
 	defaultNamespace  string
 	kubeconfigFile    string //--kubernetes-kubeconfig-file string: path to a kubernetes cli config file
 	kubeconfigContext string //--kubernetes-kubeconfig-context string: name of the kubernetes cli config file context to use
+	fromEnv           bool
 }
 
-func (o *kubernetesEndpointOptions) addFlags(flags *pflag.FlagSet) {
-	flags.StringVar(&o.server, "kubernetes-host", "", "specify the kubernetes endpoint on wich to connect")
-	flags.StringVar(&o.ca, "kubernetes-tls-ca", "", "path to the ca file to validate kubernetes endpoint")
-	flags.StringVar(&o.cert, "kubernetes-tls-cert", "", "path to the cert file to authenticate to the kubernetes endpoint")
-	flags.StringVar(&o.key, "kubernetes-tls-key", "", "path to the key file to authenticate to the kubernetes endpoint")
-	flags.BoolVar(&o.skipTLSVerify, "kubernetes-tls-skip-verify", false, "skip tls verify when connecting to the kubernetes endpoint")
-	flags.StringVar(&o.defaultNamespace, "kubernetes-default-namespace", "default", "override default namespace when connecting to kubernetes endpoint")
-	flags.StringVar(&o.kubeconfigFile, "kubernetes-kubeconfig", "", "path to an existing kubeconfig file")
-	flags.StringVar(&o.kubeconfigContext, "kubernetes-kubeconfig-context", "", `context to use in the kubeconfig file referenced in "kubernetes-kubeconfig"`)
+func (o *kubernetesEndpointOptions) addFlags(flags *pflag.FlagSet, prefix string) {
+	flags.StringVar(&o.server, prefix+"host", "", "specify the kubernetes endpoint on wich to connect")
+	flags.StringVar(&o.ca, prefix+"tls-ca", "", "path to the ca file to validate kubernetes endpoint")
+	flags.StringVar(&o.cert, prefix+"tls-cert", "", "path to the cert file to authenticate to the kubernetes endpoint")
+	flags.StringVar(&o.key, prefix+"tls-key", "", "path to the key file to authenticate to the kubernetes endpoint")
+	flags.BoolVar(&o.skipTLSVerify, prefix+"tls-skip-verify", false, "skip tls verify when connecting to the kubernetes endpoint")
+	flags.StringVar(&o.defaultNamespace, prefix+"default-namespace", "default", "override default namespace when connecting to kubernetes endpoint")
+	flags.StringVar(&o.kubeconfigFile, prefix+"kubeconfig", "", "path to an existing kubeconfig file")
+	flags.StringVar(&o.kubeconfigContext, prefix+"kubeconfig-context", "", `context to use in the kubeconfig file referenced in "kubernetes-kubeconfig"`)
+	flags.BoolVar(&o.fromEnv, prefix+"from-env", false, `use the default kubeconfig file or the value defined in KUBECONFIG environement variable`)
 }
 
 func (o *kubernetesEndpointOptions) toEndpoint(contextName string) (*kubernetes.Endpoint, error) {
+	if o.kubeconfigFile == "" && o.fromEnv {
+		if config := os.Getenv("KUBECONFIG"); config != "" {
+			o.kubeconfigFile = config
+		} else {
+			o.kubeconfigFile = filepath.Join(homedir.Get(), ".kube/config")
+		}
+	}
 	if o.kubeconfigFile != "" {
 		ep, err := kubernetes.FromKubeConfig(contextName, o.kubeconfigFile, o.kubeconfigContext, o.defaultNamespace)
 		if err != nil {
