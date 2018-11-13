@@ -47,18 +47,25 @@ func newExportCommand(dockerCli command.Cli) *cobra.Command {
 }
 func runExport(dockerCli command.Cli, opts *exportOptions) error {
 	ctxMeta, err := dockerCli.ContextStore().GetContextMetadata(opts.contextName)
+	var writer io.Writer
+	if opts.dest == "-" {
+		writer = dockerCli.Out()
+	} else {
+		f, err := os.OpenFile(opts.dest, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		writer = f
+	}
+
 	if err != nil {
 		return err
 	}
 	if !opts.kubeconfig {
 		reader := store.Export(opts.contextName, dockerCli.ContextStore())
 		defer reader.Close()
-		f, err := os.OpenFile(opts.dest, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		_, err = io.Copy(f, reader)
+		_, err = io.Copy(writer, reader)
 		return err
 	}
 	kubernetesEndpointMeta := kubernetes.EndpointFromContext(opts.contextName, ctxMeta)
@@ -77,5 +84,10 @@ func runExport(dockerCli command.Cli, opts *exportOptions) error {
 	if err != nil {
 		return err
 	}
-	return clientcmd.WriteToFile(rawCfg, opts.dest)
+	data, err := clientcmd.Write(rawCfg)
+	if err != nil {
+		return err
+	}
+	_, err = writer.Write(data)
+	return err
 }

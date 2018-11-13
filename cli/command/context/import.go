@@ -3,6 +3,7 @@ package context
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/docker/cli/cli"
@@ -33,12 +34,19 @@ func newImportCommand(dockerCli command.Cli) *cobra.Command {
 			if exists && !opts.force {
 				return fmt.Errorf("context %q already exists", opts.name)
 			}
-			f, err := os.Open(file)
-			if err != nil {
-				return err
+			var reader io.Reader
+			if file == "-" {
+				reader = dockerCli.In()
+			} else {
+				f, err := os.Open(file)
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+				reader = f
 			}
-			defer f.Close()
-			if err := store.Import(opts.name, dockerCli.ContextStore(), f); err != nil {
+
+			if err := store.Import(opts.name, dockerCli.ContextStore(), reader); err != nil {
 				return err
 			}
 			if opts.use {
