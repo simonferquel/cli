@@ -6,7 +6,7 @@ import (
 	"github.com/docker/cli/cli/context/store"
 )
 
-// ToStoreMeta convert the endpoint to the store format
+// ToStoreMeta converts the endpoint to the store format
 func (e *EndpointMeta) ToStoreMeta() store.Metadata {
 	meta := e.EndpointMeta.ToStoreMeta()
 	if e.APIVersion != "" {

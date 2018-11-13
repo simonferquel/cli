@@ -10,7 +10,7 @@ type ContextMetadata struct {
 	StackOrchestrator Orchestrator
 }
 
-// SetContextMetadata set the metadata inside a stored context
+// SetContextMetadata sets the metadata inside a stored context
 func SetContextMetadata(ctx *store.ContextMetadata, metadata ContextMetadata) {
 	ctx.Metadata = map[string]interface{}{
 		"description":              metadata.Description,
@@ -18,7 +18,7 @@ func SetContextMetadata(ctx *store.ContextMetadata, metadata ContextMetadata) {
 	}
 }
 
-// GetContextMetadata extract metadata from stored context metadata
+// GetContextMetadata extracts metadata from stored context metadata
 func GetContextMetadata(ctx store.ContextMetadata) (ContextMetadata, error) {
 	var result ContextMetadata
 	if ctx.Metadata == nil {

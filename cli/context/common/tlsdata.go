@@ -64,7 +64,7 @@ func LoadTLSData(s store.Store, contextName, endpointName string) (*TLSData, err
 	return nil, nil
 }
 
-// TLSDataFromFiles read files into a TLSData struct (or return nil if all paths are empty)
+// TLSDataFromFiles reads files into a TLSData struct (or returns nil if all paths are empty)
 func TLSDataFromFiles(caPath, certPath, keyPath string) (*TLSData, error) {
 	var (
 		ca, cert, key []byte

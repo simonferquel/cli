@@ -19,7 +19,7 @@ type EndpointMeta struct {
 	SkipTLSVerify bool
 }
 
-// ToStoreMeta convert the endpoint to the store format
+// ToStoreMeta converts the endpoint to the store format
 func (e *EndpointMeta) ToStoreMeta() store.Metadata {
 	return store.Metadata{
 		hostKey:          e.Host,
@@ -27,7 +27,7 @@ func (e *EndpointMeta) ToStoreMeta() store.Metadata {
 	}
 }
 
-// Parse parses a context endpoint metadata into a typed Endpoint structure
+// Parse parses a context endpoint metadata into a typed EndpointMeta structure
 func Parse(contextName, endpointName string, metadata store.ContextMetadata) *EndpointMeta {
 	ep, ok := metadata.Endpoints[endpointName]
 	if !ok {

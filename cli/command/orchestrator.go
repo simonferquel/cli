@@ -53,7 +53,7 @@ func normalize(value string) (Orchestrator, error) {
 	}
 }
 
-// NormalizeOrchestrator parses an orchestrator value and check if it is valid
+// NormalizeOrchestrator parses an orchestrator value and checks if it is valid
 func NormalizeOrchestrator(value string) (Orchestrator, error) {
 	return normalize(value)
 }

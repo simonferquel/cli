@@ -10,7 +10,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-// ToStoreMeta convert the endpoint to the store format
+// ToStoreMeta converts the endpoint to the store format
 func (e *EndpointMeta) ToStoreMeta() store.Metadata {
 	meta := e.EndpointMeta.ToStoreMeta()
 	if e.DefaultNamespace != "" {

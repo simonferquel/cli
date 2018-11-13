@@ -56,7 +56,7 @@ func (c *Endpoint) KubernetesConfig() (clientcmd.ClientConfig, error) {
 	return clientcmd.NewDefaultClientConfig(*cfg, &clientcmd.ConfigOverrides{}), nil
 }
 
-// Parse extract kubernetes endpoint info from current context
+// Parse extracts kubernetes endpoint info from current context
 func Parse(name string, metadata store.ContextMetadata) *EndpointMeta {
 	ep, ok := metadata.Endpoints[kubernetesEndpointKey]
 	if !ok {

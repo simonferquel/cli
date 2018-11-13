@@ -31,7 +31,7 @@ type Store interface {
 // Metadata contains metadata about an endpoint
 type Metadata map[string]interface{}
 
-// GetString retrieve a metadata value and check it is a string
+// GetString retrieves a metadata value and checks it is a string
 func (m Metadata) GetString(key string) (string, bool) {
 	v, ok := m[key]
 	if !ok {
@@ -41,7 +41,7 @@ func (m Metadata) GetString(key string) (string, bool) {
 	return s, ok
 }
 
-// GetBoolean retrieve a metadata value and check it is a string
+// GetBoolean retrieves a metadata value and checks it is a string
 func (m Metadata) GetBoolean(key string) (bool, bool) {
 	v, ok := m[key]
 	if !ok {
@@ -79,29 +79,24 @@ func New(dir string) (Store, error) {
 	if err := os.MkdirAll(tlsRoot, 0700); err != nil {
 		return nil, err
 	}
-	_, err := os.Stat(configFile)
 
+	var currentContext string
+	configBytes, err := ioutil.ReadFile(configFile)
 	switch {
 	case os.IsNotExist(err):
-		//create default file
-		if err := ioutil.WriteFile(configFile, []byte("{}"), 0644); err != nil {
-			return nil, err
-		}
+		// don't do anything, currentContext is not set
 	case err != nil:
 		return nil, err
-	}
-
-	configBytes, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		return nil, err
-	}
-	var cfg config
-	if err := json.Unmarshal(configBytes, &cfg); err != nil {
-		return nil, err
+	default:
+		var cfg config
+		if err := json.Unmarshal(configBytes, &cfg); err != nil {
+			return nil, err
+		}
+		currentContext = cfg.CurrentContext
 	}
 	return &store{
 		configFile:     configFile,
-		currentContext: cfg.CurrentContext,
+		currentContext: currentContext,
 		meta: &metadataStore{
 			root: metaRoot,
 		},
@@ -194,7 +189,9 @@ func (s *store) GetContextTLSData(contextName, endpointName, fileName string) ([
 	return s.tls.getData(contextName, endpointName, fileName)
 }
 
-// Export exports an existing namespace into a stream
+// Export exports an existing namespace into an opaque data stream
+// This stream is actually a tarball containing context metadata and TLS materials, but it does
+// not map 1:1 the layout of the context store (don't try to restore it manually without calling store.Import)
 func Export(name string, s Store) io.ReadCloser {
 	reader, writer := io.Pipe()
 	go func() {

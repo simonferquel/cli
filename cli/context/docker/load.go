@@ -91,7 +91,7 @@ func (c *Endpoint) tlsConfig() (*tls.Config, error) {
 	return tlsconfig.ClientDefault(tlsOpts...), nil
 }
 
-//ConfigureClient configures a docker client
+// ConfigureClient configures a docker client
 func (c *Endpoint) ConfigureClient(cli *client.Client) error {
 	if c.Host != "" {
 		helper, err := connhelper.GetConnectionHelper(c.Host)
@@ -148,7 +148,7 @@ func (c *Endpoint) ConfigureClient(cli *client.Client) error {
 	return nil
 }
 
-// Parse parses a context docker endpoint metadata into a typed Endpoint structure
+// Parse parses a context docker endpoint metadata into a typed EndpointMeta structure
 func Parse(name string, metadata store.ContextMetadata) (EndpointMeta, error) {
 	ep, ok := metadata.Endpoints[dockerEndpointKey]
 	if !ok {
