@@ -39,7 +39,10 @@ func newCreateCommand(dockerCli command.Cli) *cobra.Command {
 
 func (o *createOptions) addFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&o.description, "description", "", "set the description of the context")
-	flags.StringVar(&o.defaultStackOrchestrator, "default-stack-orchestrator", "", "set the default orchestrator for stack operations if different to the default one, to use with this context (swarm|kubernetes|all)")
+	flags.StringVar(
+		&o.defaultStackOrchestrator,
+		"default-stack-orchestrator", "",
+		"set the default orchestrator for stack operations if different to the default one, to use with this context (swarm|kubernetes|all)")
 	o.docker.addFlags(flags, "docker-")
 	o.kubernetes.addFlags(flags, "kubernetes-")
 }
