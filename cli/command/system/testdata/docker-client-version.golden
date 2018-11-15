@@ -1,4 +1,5 @@
 Client:
+ Context:           test-context
  Version:           18.99.5-ce
  API version:       1.38
  Go version:        go1.10.2

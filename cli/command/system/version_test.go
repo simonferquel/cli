@@ -33,6 +33,7 @@ func TestVersionWithoutServer(t *testing.T) {
 func TestVersionAlign(t *testing.T) {
 	vi := versionInfo{
 		Client: clientVersion{
+			Context:           "test-context",
 			Version:           "18.99.5-ce",
 			APIVersion:        "1.38",
 			DefaultAPIVersion: "1.38",
