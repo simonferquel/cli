@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/docker/cli/cli/command"
-	"github.com/docker/cli/kubernetes"
+	"github.com/docker/cli/cli/context/kubernetes"
 	cliv1beta1 "github.com/docker/cli/kubernetes/client/clientset/typed/compose/v1beta1"
 	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
@@ -55,7 +55,7 @@ func WrapCli(dockerCli command.Cli, opts Options) (*KubeCli, error) {
 	cli := &KubeCli{
 		Cli: dockerCli,
 	}
-	clientConfig, err := kubernetes.NewKubernetesConfig(dockerCli.ContextStore(), dockerCli.CurrentContext(), opts.Config)
+	clientConfig, err := kubernetes.ConfigFromContext(dockerCli.CurrentContext(), dockerCli.ContextStore(), opts.Config)
 	if err != nil {
 		return nil, err
 	}

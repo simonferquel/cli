@@ -1,8 +1,10 @@
 package kubernetes
 
 import (
+	"github.com/docker/cli/cli/command"
 	"github.com/docker/cli/cli/context"
 	"github.com/docker/cli/cli/context/store"
+	"github.com/docker/cli/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
@@ -71,4 +73,28 @@ func EndpointFromContext(name string, metadata store.ContextMetadata) *EndpointM
 		EndpointMetaBase: *commonMeta,
 		DefaultNamespace: defaultNamespace,
 	}
+}
+
+// ConfigFromContext resolves a kubernetes client config for the specified context.
+// If kubeconfigOverride is specified, use this config file instead of the context defaults.ConfigFromContext
+// if command.ContextDockerHost is specified as the context name, fallsback to the default user's kubeconfig file
+func ConfigFromContext(name string, s store.Store, kubeconfigOverride string) (clientcmd.ClientConfig, error) {
+	if kubeconfigOverride != "" || name == command.ContextDockerHost {
+		return kubernetes.NewKubernetesConfig(kubeconfigOverride)
+	}
+
+	ctxMeta, err := s.GetContextMetadata(name)
+	if err != nil {
+		return nil, err
+	}
+	epMeta := EndpointFromContext(name, ctxMeta)
+	if epMeta != nil {
+		ep, err := epMeta.WithTLSData(s)
+		if err != nil {
+			return nil, err
+		}
+		return ep.KubernetesConfig()
+	}
+	// context has no kubernetes endpoint
+	return kubernetes.NewKubernetesConfig("")
 }

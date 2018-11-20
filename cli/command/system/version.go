@@ -11,6 +11,7 @@ import (
 
 	"github.com/docker/cli/cli"
 	"github.com/docker/cli/cli/command"
+	kcontext "github.com/docker/cli/cli/context/kubernetes"
 	"github.com/docker/cli/kubernetes"
 	"github.com/docker/cli/templates"
 	"github.com/docker/docker/api/types"
@@ -235,7 +236,7 @@ func getKubernetesVersion(dockerCli command.Cli, kubeConfig string) *kubernetesV
 		Kubernetes: "Unknown",
 		StackAPI:   "Unknown",
 	}
-	clientConfig, err := kubernetes.NewKubernetesConfig(dockerCli.ContextStore(), dockerCli.CurrentContext(), kubeConfig)
+	clientConfig, err := kcontext.ConfigFromContext(dockerCli.CurrentContext(), dockerCli.ContextStore(), kubeConfig)
 	if err != nil {
 		logrus.Debugf("failed to get Kubernetes configuration: %s", err)
 		return &version
