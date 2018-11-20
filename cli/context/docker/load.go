@@ -5,8 +5,10 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/cli/cli/context"
@@ -91,17 +93,24 @@ func (c *Endpoint) tlsConfig() (*tls.Config, error) {
 	return tlsconfig.ClientDefault(tlsOpts...), nil
 }
 
-// ConfigureClient configures a docker client
-func (c *Endpoint) ConfigureClient(cli *client.Client) error {
+// ClientOpts returns a slice of Client options to configure an API client with this endpoint
+func (c *Endpoint) ClientOpts() ([]func(*client.Client) error, error) {
+	var result []func(*client.Client) error
 	if c.Host != "" {
 		helper, err := connhelper.GetConnectionHelper(c.Host)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if helper == nil {
-			if err := client.WithHost(c.Host)(cli); err != nil {
-				return err
+			tlsConfig, err := c.tlsConfig()
+			if err != nil {
+				return nil, err
 			}
+			result = append(result,
+				client.WithHost(c.Host),
+				withHTTPClient(tlsConfig),
+			)
+
 		} else {
 			httpClient := &http.Client{
 				// No tls
@@ -110,42 +119,43 @@ func (c *Endpoint) ConfigureClient(cli *client.Client) error {
 					DialContext: helper.Dialer,
 				},
 			}
-			if err := client.WithHTTPClient(httpClient)(cli); err != nil {
-				return err
-			}
-			if err := client.WithHost(helper.Host)(cli); err != nil {
-				return err
-			}
-			if err := client.WithDialContext(helper.Dialer)(cli); err != nil {
-				return err
-			}
+			result = append(result,
+				client.WithHTTPClient(httpClient),
+				client.WithHost(helper.Host),
+				client.WithDialContext(helper.Dialer),
+			)
 		}
 	}
-	tlsConfig, err := c.tlsConfig()
-	if err != nil {
-		return err
-	}
-	if tlsConfig != nil {
-		httpClient := cli.HTTPClient()
-		if transport, ok := httpClient.Transport.(*http.Transport); ok {
-			transport.TLSClientConfig = tlsConfig
-		} else {
-			return errors.Errorf("cannot apply tls config to transport: %T", httpClient.Transport)
-		}
-		if err := client.WithHTTPClient(httpClient)(cli); err != nil {
-			return err
-		}
-	}
+
 	version := os.Getenv("DOCKER_API_VERSION")
 	if version == "" {
 		version = c.APIVersion
 	}
 	if version != "" {
-		if err := client.WithVersion(version)(cli); err != nil {
-			return err
-		}
+		result = append(result, client.WithVersion(version))
 	}
-	return nil
+	return result, nil
+}
+
+func withHTTPClient(tlsConfig *tls.Config) func(*client.Client) error {
+	return func(c *client.Client) error {
+		if tlsConfig == nil {
+			// Use the default HTTPClient
+			return nil
+		}
+
+		httpClient := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: tlsConfig,
+				DialContext: (&net.Dialer{
+					KeepAlive: 30 * time.Second,
+					Timeout:   30 * time.Second,
+				}).DialContext,
+			},
+			CheckRedirect: client.CheckRedirect,
+		}
+		return client.WithHTTPClient(httpClient)(c)
+	}
 }
 
 // EndpointFromContext parses a context docker endpoint metadata into a typed EndpointMeta structure

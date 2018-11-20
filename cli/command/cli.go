@@ -229,8 +229,9 @@ func NewAPIClientFromFlags(opts *cliflags.CommonOptions, configFile *configfile.
 }
 
 func newAPIClientFromEndpoint(ep docker.Endpoint, configFile *configfile.ConfigFile) (client.APIClient, error) {
-	clientOpts := []func(*client.Client) error{
-		ep.ConfigureClient,
+	clientOpts, err := ep.ClientOpts()
+	if err != nil {
+		return nil, err
 	}
 	customHeaders := configFile.HTTPHeaders
 	if customHeaders == nil {
