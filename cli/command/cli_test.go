@@ -32,9 +32,7 @@ func TestNewAPIClientFromFlags(t *testing.T) {
 			"My-Header": "Custom-Value",
 		},
 	}
-	ep, err := resolveDockerEndpoint(emptyContextStore{}, ContextDockerHost, opts)
-	assert.NilError(t, err)
-	apiclient, err := newAPIClientFromEndpoint(ep, configFile)
+	apiclient, err := NewAPIClientFromFlags(opts, configFile)
 	assert.NilError(t, err)
 	assert.Check(t, is.Equal(host, apiclient.DaemonHost()))
 
@@ -54,9 +52,7 @@ func TestNewAPIClientFromFlagsForDefaultSchema(t *testing.T) {
 			"My-Header": "Custom-Value",
 		},
 	}
-	ep, err := resolveDockerEndpoint(emptyContextStore{}, ContextDockerHost, opts)
-	assert.NilError(t, err)
-	apiclient, err := newAPIClientFromEndpoint(ep, configFile)
+	apiclient, err := NewAPIClientFromFlags(opts, configFile)
 	assert.NilError(t, err)
 	assert.Check(t, is.Equal("tcp://localhost"+host, apiclient.DaemonHost()))
 
@@ -71,12 +67,11 @@ func TestNewAPIClientFromFlagsForDefaultSchema(t *testing.T) {
 func TestNewAPIClientFromFlagsWithAPIVersionFromEnv(t *testing.T) {
 	customVersion := "v3.3.3"
 	defer env.Patch(t, "DOCKER_API_VERSION", customVersion)()
+	defer env.Patch(t, "DOCKER_HOST", ":2375")()
 
 	opts := &flags.CommonOptions{}
 	configFile := &configfile.ConfigFile{}
-	ep, err := resolveDockerEndpoint(emptyContextStore{}, ContextDockerHost, opts)
-	assert.NilError(t, err)
-	apiclient, err := newAPIClientFromEndpoint(ep, configFile)
+	apiclient, err := NewAPIClientFromFlags(opts, configFile)
 	assert.NilError(t, err)
 	assert.Check(t, is.Equal(customVersion, apiclient.ClientVersion()))
 }

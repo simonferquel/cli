@@ -33,7 +33,11 @@ func (s *tlsStore) createOrUpdate(contextName, endpointName, filename string, da
 }
 
 func (s *tlsStore) getData(contextName, endpointName, filename string) ([]byte, error) {
-	return ioutil.ReadFile(s.filePath(contextName, endpointName, filename))
+	data, err := ioutil.ReadFile(s.filePath(contextName, endpointName, filename))
+	if err != nil {
+		return nil, convertTLSDataDoesNotExist(contextName, endpointName, filename, err)
+	}
+	return data, nil
 }
 
 func (s *tlsStore) remove(contextName, endpointName, filename string) error {
@@ -82,3 +86,10 @@ func (s *tlsStore) listContextData(contextName string) (map[string]EndpointFiles
 
 // EndpointFiles is a slice of strings representing file names
 type EndpointFiles []string
+
+func convertTLSDataDoesNotExist(context, endpoint, file string, err error) error {
+	if os.IsNotExist(err) {
+		return &tlsDataDoesNotExistError{context: context, endpoint: endpoint, file: file}
+	}
+	return err
+}

@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"github.com/docker/cli/cli/connhelper"
-	"github.com/docker/cli/cli/context/common"
+	"github.com/docker/cli/cli/context"
 	"github.com/docker/cli/cli/context/store"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/tlsconfig"
@@ -19,7 +19,7 @@ import (
 // EndpointMeta is a typed wrapper around a context-store generic endpoint describing
 // a Docker Engine endpoint, without its tls config
 type EndpointMeta struct {
-	common.EndpointMeta
+	context.EndpointMetaBase
 	APIVersion string
 }
 
@@ -27,13 +27,13 @@ type EndpointMeta struct {
 // a Docker Engine endpoint, with its tls data
 type Endpoint struct {
 	EndpointMeta
-	TLSData     *common.TLSData
+	TLSData     *context.TLSData
 	TLSPassword string
 }
 
 // WithTLSData loads TLS materials for the endpoint
 func (c *EndpointMeta) WithTLSData(s store.Store) (Endpoint, error) {
-	tlsData, err := common.LoadTLSData(s, c.ContextName, dockerEndpointKey)
+	tlsData, err := context.LoadTLSData(s, c.ContextName, dockerEndpointKey)
 	if err != nil {
 		return Endpoint{}, err
 	}
@@ -148,19 +148,19 @@ func (c *Endpoint) ConfigureClient(cli *client.Client) error {
 	return nil
 }
 
-// Parse parses a context docker endpoint metadata into a typed EndpointMeta structure
-func Parse(name string, metadata store.ContextMetadata) (EndpointMeta, error) {
+// EndpointFromContext parses a context docker endpoint metadata into a typed EndpointMeta structure
+func EndpointFromContext(name string, metadata store.ContextMetadata) (EndpointMeta, error) {
 	ep, ok := metadata.Endpoints[dockerEndpointKey]
 	if !ok {
 		return EndpointMeta{}, errors.New("cannot find docker endpoint in context")
 	}
-	commonMeta := common.Parse(name, dockerEndpointKey, metadata)
+	commonMeta := context.EndpointFromContext(name, dockerEndpointKey, metadata)
 	if commonMeta == nil {
 		return EndpointMeta{}, errors.New("cannot find docker endpoint in context")
 	}
 	apiVersion, _ := ep.GetString(apiVersionKey)
 	return EndpointMeta{
-		EndpointMeta: *commonMeta,
-		APIVersion:   apiVersion,
+		EndpointMetaBase: *commonMeta,
+		APIVersion:       apiVersion,
 	}, nil
 }

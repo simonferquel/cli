@@ -1,14 +1,12 @@
 package docker
 
 import (
-	"os"
-
 	"github.com/docker/cli/cli/context/store"
 )
 
 // ToStoreMeta converts the endpoint to the store format
 func (e *EndpointMeta) ToStoreMeta() store.Metadata {
-	meta := e.EndpointMeta.ToStoreMeta()
+	meta := e.EndpointMetaBase.ToStoreMeta()
 	if e.APIVersion != "" {
 		meta[apiVersionKey] = e.APIVersion
 	}
@@ -19,7 +17,7 @@ func (e *EndpointMeta) ToStoreMeta() store.Metadata {
 func Save(s store.Store, endpoint Endpoint) error {
 	ctxMeta, err := s.GetContextMetadata(endpoint.ContextName)
 	switch {
-	case os.IsNotExist(err):
+	case store.IsErrContextDoesNotExist(err):
 		ctxMeta = store.ContextMetadata{
 			Endpoints: make(map[string]store.Metadata),
 			Metadata:  make(store.Metadata),

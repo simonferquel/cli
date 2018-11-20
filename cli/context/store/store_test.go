@@ -112,7 +112,7 @@ func TestRemove(t *testing.T) {
 	}))
 	assert.NilError(t, s.RemoveContext("source"))
 	_, err = s.GetContextMetadata("source")
-	assert.Check(t, os.IsNotExist(err))
+	assert.Check(t, IsErrContextDoesNotExist(err))
 	f, err := s.ListContextTLSFiles("source")
 	assert.NilError(t, err)
 	assert.Equal(t, 0, len(f))

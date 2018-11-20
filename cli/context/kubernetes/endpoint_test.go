@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/docker/cli/cli/context/common"
+	"github.com/docker/cli/cli/context"
 	"github.com/docker/cli/cli/context/store"
 	"gotest.tools/assert"
 	"k8s.io/client-go/tools/clientcmd"
@@ -13,9 +13,9 @@ import (
 )
 
 func testEndpoint(name, server, defaultNamespace string, ca, cert, key []byte, skipTLSVerify bool) Endpoint {
-	var tlsData *common.TLSData
+	var tlsData *context.TLSData
 	if ca != nil || cert != nil || key != nil {
-		tlsData = &common.TLSData{
+		tlsData = &context.TLSData{
 			CA:   ca,
 			Cert: cert,
 			Key:  key,
@@ -23,7 +23,7 @@ func testEndpoint(name, server, defaultNamespace string, ca, cert, key []byte, s
 	}
 	return Endpoint{
 		EndpointMeta: EndpointMeta{
-			EndpointMeta: common.EndpointMeta{
+			EndpointMetaBase: context.EndpointMetaBase{
 				ContextName:   name,
 				Host:          server,
 				SkipTLSVerify: skipTLSVerify,
@@ -91,11 +91,11 @@ func TestSaveLoadContexts(t *testing.T) {
 	embededContext2Meta, err := store.GetContextMetadata("embed-context2")
 	assert.NilError(t, err)
 
-	rawNoTLS := Parse("raw-notls", rawNoTLSMeta)
-	rawNoTLSSkip := Parse("raw-notls-skip", rawNoTLSSkipMeta)
-	rawTLS := Parse("raw-tls", rawTLSMeta)
-	embededDefault := Parse("embed-default-context", embededDefaultMeta)
-	embededContext2 := Parse("embed-context2", embededContext2Meta)
+	rawNoTLS := EndpointFromContext("raw-notls", rawNoTLSMeta)
+	rawNoTLSSkip := EndpointFromContext("raw-notls-skip", rawNoTLSSkipMeta)
+	rawTLS := EndpointFromContext("raw-tls", rawTLSMeta)
+	embededDefault := EndpointFromContext("embed-default-context", embededDefaultMeta)
+	embededContext2 := EndpointFromContext("embed-context2", embededContext2Meta)
 
 	rawNoTLSEP, err := rawNoTLS.WithTLSData(store)
 	assert.NilError(t, err)

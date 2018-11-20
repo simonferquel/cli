@@ -1,7 +1,7 @@
 package kubernetes
 
 import (
-	"github.com/docker/cli/cli/context/common"
+	"github.com/docker/cli/cli/context"
 	"github.com/docker/cli/cli/context/store"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -10,7 +10,7 @@ import (
 // EndpointMeta is a typed wrapper around a context-store generic endpoint describing
 // a Kubernetes endpoint, without TLS data
 type EndpointMeta struct {
-	common.EndpointMeta
+	context.EndpointMetaBase
 	DefaultNamespace string
 }
 
@@ -18,12 +18,12 @@ type EndpointMeta struct {
 // a Kubernetes endpoint, with TLS data
 type Endpoint struct {
 	EndpointMeta
-	TLSData *common.TLSData
+	TLSData *context.TLSData
 }
 
 // WithTLSData loads TLS materials for the endpoint
 func (c *EndpointMeta) WithTLSData(s store.Store) (Endpoint, error) {
-	tlsData, err := common.LoadTLSData(s, c.ContextName, kubernetesEndpointKey)
+	tlsData, err := context.LoadTLSData(s, c.ContextName, kubernetesEndpointKey)
 	if err != nil {
 		return Endpoint{}, err
 	}
@@ -56,19 +56,19 @@ func (c *Endpoint) KubernetesConfig() (clientcmd.ClientConfig, error) {
 	return clientcmd.NewDefaultClientConfig(*cfg, &clientcmd.ConfigOverrides{}), nil
 }
 
-// Parse extracts kubernetes endpoint info from current context
-func Parse(name string, metadata store.ContextMetadata) *EndpointMeta {
+// EndpointFromContext extracts kubernetes endpoint info from current context
+func EndpointFromContext(name string, metadata store.ContextMetadata) *EndpointMeta {
 	ep, ok := metadata.Endpoints[kubernetesEndpointKey]
 	if !ok {
 		return nil
 	}
-	commonMeta := common.Parse(name, kubernetesEndpointKey, metadata)
+	commonMeta := context.EndpointFromContext(name, kubernetesEndpointKey, metadata)
 	if commonMeta == nil {
 		return nil
 	}
 	defaultNamespace, _ := ep.GetString(defaultNamespaceKey)
 	return &EndpointMeta{
-		EndpointMeta:     *commonMeta,
+		EndpointMetaBase: *commonMeta,
 		DefaultNamespace: defaultNamespace,
 	}
 }

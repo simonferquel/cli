@@ -12,7 +12,7 @@ import (
 	"github.com/docker/cli/cli/config"
 	cliconfig "github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
-	"github.com/docker/cli/cli/context/common"
+	dcontext "github.com/docker/cli/cli/context"
 	"github.com/docker/cli/cli/context/docker"
 	"github.com/docker/cli/cli/context/store"
 	cliflags "github.com/docker/cli/cli/flags"
@@ -214,6 +214,20 @@ func (cli *DockerCli) Initialize(opts *cliflags.ClientOptions) error {
 	return nil
 }
 
+// NewAPIClientFromFlags creates a new APIClient from command line flags
+func NewAPIClientFromFlags(opts *cliflags.CommonOptions, configFile *configfile.ConfigFile) (client.APIClient, error) {
+	store, err := store.New(cliconfig.ContextStoreDir())
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to initialize context store")
+	}
+	contextName := resolveContextName(opts, store)
+	endpoint, err := resolveDockerEndpoint(store, contextName, opts)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to resolve docker endpoint")
+	}
+	return newAPIClientFromEndpoint(endpoint, configFile)
+}
+
 func newAPIClientFromEndpoint(ep docker.Endpoint, configFile *configfile.ConfigFile) (client.APIClient, error) {
 	clientOpts := []func(*client.Client) error{
 		ep.ConfigureClient,
@@ -233,7 +247,7 @@ func resolveDockerEndpoint(s store.Store, contextName string, opts *cliflags.Com
 		if err != nil {
 			return docker.Endpoint{}, err
 		}
-		epMeta, err := docker.Parse(contextName, ctxMeta)
+		epMeta, err := docker.EndpointFromContext(contextName, ctxMeta)
 		if err != nil {
 			return docker.Endpoint{}, err
 		}
@@ -250,12 +264,12 @@ func resolveDockerEndpoint(s store.Store, contextName string, opts *cliflags.Com
 
 	var (
 		skipTLSVerify bool
-		tlsData       *common.TLSData
+		tlsData       *dcontext.TLSData
 	)
 
 	if opts.TLSOptions != nil {
 		skipTLSVerify = opts.TLSOptions.InsecureSkipVerify
-		tlsData, err = common.TLSDataFromFiles(opts.TLSOptions.CAFile, opts.TLSOptions.CertFile, opts.TLSOptions.KeyFile)
+		tlsData, err = dcontext.TLSDataFromFiles(opts.TLSOptions.CAFile, opts.TLSOptions.CertFile, opts.TLSOptions.KeyFile)
 		if err != nil {
 			return docker.Endpoint{}, err
 		}
@@ -263,7 +277,7 @@ func resolveDockerEndpoint(s store.Store, contextName string, opts *cliflags.Com
 
 	return docker.Endpoint{
 		EndpointMeta: docker.EndpointMeta{
-			EndpointMeta: common.EndpointMeta{
+			EndpointMetaBase: dcontext.EndpointMetaBase{
 				ContextName:   ContextDockerHost,
 				Host:          host,
 				SkipTLSVerify: skipTLSVerify,

@@ -14,7 +14,7 @@ func TestTlsCreateUpdateGetRemove(t *testing.T) {
 	defer os.RemoveAll(testDir)
 	testee := tlsStore{root: testDir}
 	_, err = testee.getData("test-ctx", "test-ep", "test-data")
-	assert.Equal(t, true, os.IsNotExist(err))
+	assert.Equal(t, true, IsErrTLSDataDoesNotExist(err))
 
 	err = testee.createOrUpdate("test-ctx", "test-ep", "test-data", []byte("data"))
 	assert.NilError(t, err)
@@ -33,7 +33,7 @@ func TestTlsCreateUpdateGetRemove(t *testing.T) {
 	assert.NilError(t, err)
 
 	_, err = testee.getData("test-ctx", "test-ep", "test-data")
-	assert.Equal(t, true, os.IsNotExist(err))
+	assert.Equal(t, true, IsErrTLSDataDoesNotExist(err))
 }
 
 func TestTlsListAndBatchRemove(t *testing.T) {

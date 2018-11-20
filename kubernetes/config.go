@@ -19,7 +19,7 @@ func NewKubernetesConfig(s store.Store, contextName, configPath string) (clientc
 		if err != nil {
 			return nil, err
 		}
-		epMeta := kubernetes.Parse(contextName, ctxMeta)
+		epMeta := kubernetes.EndpointFromContext(contextName, ctxMeta)
 		if epMeta != nil {
 			ep, err := epMeta.WithTLSData(s)
 			if err != nil {

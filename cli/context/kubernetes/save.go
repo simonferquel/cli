@@ -2,9 +2,8 @@ package kubernetes
 
 import (
 	"io/ioutil"
-	"os"
 
-	"github.com/docker/cli/cli/context/common"
+	"github.com/docker/cli/cli/context"
 	"github.com/docker/cli/cli/context/store"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -12,7 +11,7 @@ import (
 
 // ToStoreMeta converts the endpoint to the store format
 func (e *EndpointMeta) ToStoreMeta() store.Metadata {
-	meta := e.EndpointMeta.ToStoreMeta()
+	meta := e.EndpointMetaBase.ToStoreMeta()
 	if e.DefaultNamespace != "" {
 		meta[defaultNamespaceKey] = e.DefaultNamespace
 	}
@@ -23,7 +22,7 @@ func (e *EndpointMeta) ToStoreMeta() store.Metadata {
 func Save(s store.Store, endpoint Endpoint) error {
 	ctxMeta, err := s.GetContextMetadata(endpoint.ContextName)
 	switch {
-	case os.IsNotExist(err):
+	case store.IsErrContextDoesNotExist(err):
 		ctxMeta = store.ContextMetadata{
 			Endpoints: make(map[string]store.Metadata),
 			Metadata:  make(store.Metadata),
@@ -61,9 +60,9 @@ func FromKubeConfig(name, kubeconfig, kubeContext, namespaceOverride string) (En
 	if cert, err = readFileOrDefault(clientcfg.CertFile, clientcfg.CertData); err != nil {
 		return Endpoint{}, err
 	}
-	var tlsData *common.TLSData
+	var tlsData *context.TLSData
 	if ca != nil || cert != nil || key != nil {
-		tlsData = &common.TLSData{
+		tlsData = &context.TLSData{
 			CA:   ca,
 			Cert: cert,
 			Key:  key,
@@ -71,7 +70,7 @@ func FromKubeConfig(name, kubeconfig, kubeContext, namespaceOverride string) (En
 	}
 	return Endpoint{
 		EndpointMeta: EndpointMeta{
-			EndpointMeta: common.EndpointMeta{
+			EndpointMetaBase: context.EndpointMetaBase{
 				ContextName:   name,
 				Host:          clientcfg.Host,
 				SkipTLSVerify: clientcfg.Insecure,

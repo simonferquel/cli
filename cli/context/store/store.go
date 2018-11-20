@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -323,4 +324,32 @@ func Import(name string, s Store, reader io.Reader) error {
 
 type config struct {
 	CurrentContext string `json:"current_context,omitempty"`
+}
+
+type contextDoesNotExistError struct {
+	name string
+}
+
+func (e *contextDoesNotExistError) Error() string {
+	return fmt.Sprintf("context %q does not exist", e.name)
+}
+
+type tlsDataDoesNotExistError struct {
+	context, endpoint, file string
+}
+
+func (e *tlsDataDoesNotExistError) Error() string {
+	return fmt.Sprintf("tls data for %s/%s/%s does not exist", e.context, e.endpoint, e.file)
+}
+
+// IsErrContextDoesNotExist checks if the given error is a "context does not exist" condition
+func IsErrContextDoesNotExist(err error) bool {
+	_, ok := err.(*contextDoesNotExistError)
+	return ok
+}
+
+// IsErrTLSDataDoesNotExist checks if the given error is a "context does not exist" condition
+func IsErrTLSDataDoesNotExist(err error) bool {
+	_, ok := err.(*tlsDataDoesNotExistError)
+	return ok
 }

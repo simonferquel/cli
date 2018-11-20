@@ -37,7 +37,7 @@ func (s *metadataStore) get(name string) (ContextMetadata, error) {
 	contextDir := s.contextDir(name)
 	bytes, err := ioutil.ReadFile(filepath.Join(contextDir, metaFile))
 	if err != nil {
-		return ContextMetadata{}, err
+		return ContextMetadata{}, convertContextDoesNotExist(name, err)
 	}
 	var r ContextMetadata
 	err = json.Unmarshal(bytes, &r)
@@ -93,4 +93,11 @@ func listRecursivelyMetadataDirs(root string) ([]string, error) {
 		}
 	}
 	return result, nil
+}
+
+func convertContextDoesNotExist(name string, err error) error {
+	if os.IsNotExist(err) {
+		return &contextDoesNotExistError{name: name}
+	}
+	return err
 }

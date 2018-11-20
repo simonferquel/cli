@@ -25,7 +25,7 @@ func TestMetadataGetNotExisting(t *testing.T) {
 	defer os.RemoveAll(testDir)
 	testee := metadataStore{root: testDir}
 	_, err = testee.get("noexist")
-	assert.Assert(t, os.IsNotExist(err))
+	assert.Assert(t, IsErrContextDoesNotExist(err))
 }
 
 func TestMetadataCreateGetRemove(t *testing.T) {
@@ -65,7 +65,7 @@ func TestMetadataCreateGetRemove(t *testing.T) {
 	assert.NilError(t, testee.remove("test-context"))
 	assert.NilError(t, testee.remove("test-context")) // support duplicate remove
 	_, err = testee.get("test-context")
-	assert.Assert(t, os.IsNotExist(err))
+	assert.Assert(t, IsErrContextDoesNotExist(err))
 }
 
 func TestMetadataList(t *testing.T) {
