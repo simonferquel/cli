@@ -175,10 +175,7 @@ func (cli *DockerCli) RegistryClient(allowInsecure bool) registryclient.Registry
 func (cli *DockerCli) Initialize(opts *cliflags.ClientOptions) error {
 	cli.configFile = cliconfig.LoadDefaultConfigFile(cli.err)
 	var err error
-	cli.contextStore, err = store.New(cliconfig.ContextStoreDir())
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize context store")
-	}
+	cli.contextStore = store.New(cliconfig.ContextStoreDir())
 	cli.currentContext = resolveContextName(opts.Common, cli.contextStore)
 	endpoint, err := resolveDockerEndpoint(cli.contextStore, cli.currentContext, opts.Common)
 	if err != nil {
@@ -216,10 +213,7 @@ func (cli *DockerCli) Initialize(opts *cliflags.ClientOptions) error {
 
 // NewAPIClientFromFlags creates a new APIClient from command line flags
 func NewAPIClientFromFlags(opts *cliflags.CommonOptions, configFile *configfile.ConfigFile) (client.APIClient, error) {
-	store, err := store.New(cliconfig.ContextStoreDir())
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to initialize context store")
-	}
+	store := store.New(cliconfig.ContextStoreDir())
 	contextName := resolveContextName(opts, store)
 	endpoint, err := resolveDockerEndpoint(store, contextName, opts)
 	if err != nil {

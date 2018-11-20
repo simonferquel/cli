@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -70,29 +69,17 @@ type ContextTLSData struct {
 
 // New creates a store from a given directory.
 // If the directory does not exist or is empty, initialize it
-func New(dir string) (Store, error) {
+func New(dir string) Store {
 	metaRoot := filepath.Join(dir, metadataDir)
 	tlsRoot := filepath.Join(dir, tlsDir)
 	configFile := filepath.Join(dir, configFileName)
-	if err := os.MkdirAll(metaRoot, 0755); err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(tlsRoot, 0700); err != nil {
-		return nil, err
-	}
 
+	// read failures are silently ignored, thus fallbacking to using old DOCKER_HOST semantic
 	var currentContext string
 	configBytes, err := ioutil.ReadFile(configFile)
-	switch {
-	case os.IsNotExist(err):
-		// don't do anything, currentContext is not set
-	case err != nil:
-		return nil, err
-	default:
+	if err == nil {
 		var cfg config
-		if err := json.Unmarshal(configBytes, &cfg); err != nil {
-			return nil, err
-		}
+		json.Unmarshal(configBytes, &cfg)
 		currentContext = cfg.CurrentContext
 	}
 	return &store{
@@ -104,7 +91,7 @@ func New(dir string) (Store, error) {
 		tls: &tlsStore{
 			root: tlsRoot,
 		},
-	}, nil
+	}
 }
 
 type store struct {
