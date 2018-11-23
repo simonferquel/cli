@@ -431,9 +431,5 @@ func resolveContextName(opts *cliflags.CommonOptions, config *configfile.ConfigF
 	if ctxName, ok := os.LookupEnv("DOCKER_CONTEXT"); ok {
 		return ctxName
 	}
-	ctxName := ContextDockerHost
-	if config != nil && config.CurrentContext != "" {
-		ctxName = config.CurrentContext
-	}
-	return ctxName
+	return ContextDockerHost
 }

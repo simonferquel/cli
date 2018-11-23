@@ -13,7 +13,6 @@ import (
 )
 
 type importOptions struct {
-	use   bool
 	force bool
 	name  string
 }
@@ -49,17 +48,12 @@ func newImportCommand(dockerCli command.Cli) *cobra.Command {
 			if err := store.Import(opts.name, dockerCli.ContextStore(), reader); err != nil {
 				return err
 			}
-			if opts.use {
-				cfg := dockerCli.ConfigFile()
-				cfg.CurrentContext = opts.name
-				return cfg.Save()
-			}
+
 			return nil
 		},
 	}
 
 	flags := cmd.Flags()
-	flags.BoolVar(&opts.use, "use", false, "make this context the default one")
 	flags.BoolVar(&opts.force, "force", false, "overwrite any existing context with the same name")
 	flags.StringVar(&opts.name, "name", "", "name of the context")
 	return cmd
