@@ -12,12 +12,8 @@ import (
 	"strings"
 )
 
-const configFileName = "config.json"
-
 // Store provides a context store for easily remembering endpoints configuration
 type Store interface {
-	GetCurrentContext() string
-	SetCurrentContext(name string) error
 	ListContexts() (map[string]ContextMetadata, error)
 	CreateOrUpdateContext(name string, meta ContextMetadata) error
 	RemoveContext(name string) error
@@ -72,19 +68,8 @@ type ContextTLSData struct {
 func New(dir string) Store {
 	metaRoot := filepath.Join(dir, metadataDir)
 	tlsRoot := filepath.Join(dir, tlsDir)
-	configFile := filepath.Join(dir, configFileName)
 
-	// read failures are silently ignored, thus fallbacking to using old DOCKER_HOST semantic
-	var currentContext string
-	configBytes, err := ioutil.ReadFile(configFile)
-	if err == nil {
-		var cfg config
-		json.Unmarshal(configBytes, &cfg)
-		currentContext = cfg.CurrentContext
-	}
 	return &store{
-		configFile:     configFile,
-		currentContext: currentContext,
 		meta: &metadataStore{
 			root: metaRoot,
 		},
@@ -95,27 +80,8 @@ func New(dir string) Store {
 }
 
 type store struct {
-	configFile     string
-	currentContext string
-	meta           *metadataStore
-	tls            *tlsStore
-}
-
-func (s *store) GetCurrentContext() string {
-	return s.currentContext
-}
-
-func (s *store) SetCurrentContext(name string) error {
-	cfg := config{CurrentContext: name}
-	configBytes, err := json.Marshal(&cfg)
-	if err != nil {
-		return err
-	}
-	if err := ioutil.WriteFile(s.configFile, configBytes, 0644); err != nil {
-		return err
-	}
-	s.currentContext = name
-	return nil
+	meta *metadataStore
+	tls  *tlsStore
 }
 
 func (s *store) ListContexts() (map[string]ContextMetadata, error) {
@@ -307,10 +273,6 @@ func Import(name string, s Store, reader io.Reader) error {
 		}
 	}
 	return s.ResetContextTLSMaterial(name, &tlsData)
-}
-
-type config struct {
-	CurrentContext string `json:"current_context,omitempty"`
 }
 
 type contextDoesNotExistError struct {

@@ -8,17 +8,6 @@ import (
 	"gotest.tools/assert"
 )
 
-func TestSetGetCurrentContext(t *testing.T) {
-	testDir, err := ioutil.TempDir("", t.Name())
-	assert.NilError(t, err)
-	defer os.RemoveAll(testDir)
-	store1 := New(testDir)
-	err = store1.SetCurrentContext("test")
-	assert.NilError(t, err)
-	store2 := New(testDir)
-	assert.Equal(t, "test", store2.GetCurrentContext())
-}
-
 func TestExportImport(t *testing.T) {
 	testDir, err := ioutil.TempDir("", t.Name())
 	assert.NilError(t, err)

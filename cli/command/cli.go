@@ -176,7 +176,7 @@ func (cli *DockerCli) Initialize(opts *cliflags.ClientOptions) error {
 	cli.configFile = cliconfig.LoadDefaultConfigFile(cli.err)
 	var err error
 	cli.contextStore = store.New(cliconfig.ContextStoreDir())
-	cli.currentContext = resolveContextName(opts.Common, cli.contextStore)
+	cli.currentContext = resolveContextName(opts.Common, cli.configFile)
 	endpoint, err := resolveDockerEndpoint(cli.contextStore, cli.currentContext, opts.Common)
 	if err != nil {
 		return errors.Wrap(err, "unable to resolve docker endpoint")
@@ -214,7 +214,7 @@ func (cli *DockerCli) Initialize(opts *cliflags.ClientOptions) error {
 // NewAPIClientFromFlags creates a new APIClient from command line flags
 func NewAPIClientFromFlags(opts *cliflags.CommonOptions, configFile *configfile.ConfigFile) (client.APIClient, error) {
 	store := store.New(cliconfig.ContextStoreDir())
-	contextName := resolveContextName(opts, store)
+	contextName := resolveContextName(opts, configFile)
 	endpoint, err := resolveDockerEndpoint(store, contextName, opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to resolve docker endpoint")
@@ -410,7 +410,7 @@ func UserAgent() string {
 	return "Docker-Client/" + cli.Version + " (" + runtime.GOOS + ")"
 }
 
-func resolveContextName(opts *cliflags.CommonOptions, store store.Store) string {
+func resolveContextName(opts *cliflags.CommonOptions, config *configfile.ConfigFile) string {
 	if opts.Context != "" {
 		return opts.Context
 	}
@@ -423,9 +423,9 @@ func resolveContextName(opts *cliflags.CommonOptions, store store.Store) string 
 	if ctxName, ok := os.LookupEnv("DOCKER_CONTEXT"); ok {
 		return ctxName
 	}
-	ctxName := store.GetCurrentContext()
-	if ctxName == "" {
-		return ContextDockerHost
+	ctxName := ContextDockerHost
+	if config != nil && config.CurrentContext != "" {
+		ctxName = config.CurrentContext
 	}
 	return ctxName
 }

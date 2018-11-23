@@ -7,7 +7,6 @@
 //
 // Current implementation is purely file based with the following structure:
 // ${CONTEXT_ROOT}
-//   - config.json: contains the current "default" context
 //   - meta/
 //     - context1/meta.json: contains context medata (key/value pairs) as well as a list of endpoints (themselves containing key/value pair metadata)
 //     - contexts/can/also/be/folded/like/this/meta.json: same as context1, but for a context named `contexts/can/also/be/folded/like/this`
