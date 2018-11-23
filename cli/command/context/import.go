@@ -50,7 +50,9 @@ func newImportCommand(dockerCli command.Cli) *cobra.Command {
 				return err
 			}
 			if opts.use {
-				return dockerCli.ContextStore().SetCurrentContext(opts.name)
+				cfg := dockerCli.ConfigFile()
+				cfg.CurrentContext = opts.name
+				return cfg.Save()
 			}
 			return nil
 		},

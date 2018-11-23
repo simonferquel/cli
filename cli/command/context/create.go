@@ -1,8 +1,6 @@
 package context
 
 import (
-	"os"
-
 	"github.com/docker/cli/cli"
 	"github.com/docker/cli/cli/command"
 	"github.com/docker/cli/cli/context/docker"
@@ -48,7 +46,7 @@ func (o *createOptions) addFlags(flags *pflag.FlagSet) {
 }
 
 func (o *createOptions) process(cli command.Cli, s store.Store) error {
-	if _, err := s.GetContextMetadata(o.name); !os.IsNotExist(err) {
+	if _, err := s.GetContextMetadata(o.name); !store.IsErrContextDoesNotExist(err) {
 		if err != nil {
 			return errors.Wrap(err, "error while getting existing contexts")
 		}

@@ -16,7 +16,9 @@ func newUseCommand(dockerCli command.Cli) *cobra.Command {
 			if _, err := dockerCli.ContextStore().GetContextMetadata(name); err != nil {
 				return err
 			}
-			return dockerCli.ContextStore().SetCurrentContext(name)
+			cfg := dockerCli.ConfigFile()
+			cfg.CurrentContext = name
+			return cfg.Save()
 		},
 	}
 	return cmd

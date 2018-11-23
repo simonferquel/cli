@@ -47,6 +47,9 @@ func newExportCommand(dockerCli command.Cli) *cobra.Command {
 }
 func runExport(dockerCli command.Cli, opts *exportOptions) error {
 	ctxMeta, err := dockerCli.ContextStore().GetContextMetadata(opts.contextName)
+	if err != nil {
+		return err
+	}
 	var writer io.Writer
 	if opts.dest == "-" {
 		writer = dockerCli.Out()
@@ -59,9 +62,6 @@ func runExport(dockerCli command.Cli, opts *exportOptions) error {
 		writer = f
 	}
 
-	if err != nil {
-		return err
-	}
 	if !opts.kubeconfig {
 		reader := store.Export(opts.contextName, dockerCli.ContextStore())
 		defer reader.Close()
