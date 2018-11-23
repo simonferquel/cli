@@ -93,3 +93,14 @@ func TestRemove(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, 0, len(f))
 }
+
+func TestListEmptyStore(t *testing.T) {
+	testDir, err := ioutil.TempDir("", t.Name())
+	assert.NilError(t, err)
+	defer os.RemoveAll(testDir)
+	store := New(testDir)
+	result, err := store.ListContexts()
+	assert.NilError(t, err)
+	assert.Check(t, result != nil)
+	assert.Check(t, len(result) == 0)
+}

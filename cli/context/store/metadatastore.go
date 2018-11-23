@@ -52,6 +52,11 @@ func (s *metadataStore) remove(name string) error {
 func (s *metadataStore) list() (map[string]ContextMetadata, error) {
 	ctxNames, err := listRecursivelyMetadataDirs(s.root)
 	if err != nil {
+		if os.IsNotExist(err) {
+			// store is empty, meta dir does not exist yet
+			// this should not be considered an error
+			return map[string]ContextMetadata{}, nil
+		}
 		return nil, err
 	}
 	res := make(map[string]ContextMetadata)
