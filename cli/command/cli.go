@@ -50,6 +50,8 @@ type Cli interface {
 	Err() io.Writer
 	In() *InStream
 	SetIn(in *InStream)
+	SetOut(out *OutStream)
+	SetErr(err io.Writer)
 	ConfigFile() *configfile.ConfigFile
 	ServerInfo() ServerInfo
 	ClientInfo() ClientInfo
@@ -92,9 +94,19 @@ func (cli *DockerCli) Client() client.APIClient {
 	return cli.client
 }
 
+// SetOut sets the writer used for stdout
+func (cli *DockerCli) SetOut(out *OutStream) {
+	cli.out = out
+}
+
 // Out returns the writer used for stdout
 func (cli *DockerCli) Out() *OutStream {
 	return cli.out
+}
+
+// SetErr sets the writer used for stderr
+func (cli *DockerCli) SetErr(err io.Writer) {
+	cli.err = err
 }
 
 // Err returns the writer used for stderr
