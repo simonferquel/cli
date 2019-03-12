@@ -388,19 +388,19 @@ func (cli *DockerCli) StackOrchestrator(flagValue string) (Orchestrator, error) 
 	var ctxOrchestrator string
 
 	configFile := cli.configFile
-	if configFile == nil {
-		configFile = cliconfig.LoadDefaultConfigFile(cli.Err())
-	}
+	// if configFile == nil {
+	// 	configFile = cliconfig.LoadDefaultConfigFile(cli.Err())
+	// }
 
 	currentContext := cli.CurrentContext()
-	if currentContext == "" {
-		currentContext = configFile.CurrentContext
-	}
+	// if currentContext == "" {
+	// 	currentContext = configFile.CurrentContext
+	// }
 	if currentContext != "" {
 		contextstore := cli.contextStore
-		if contextstore == nil {
-			contextstore = store.New(cliconfig.ContextStoreDir(), cli.contextStoreConfig)
-		}
+		// if contextstore == nil {
+		// 	contextstore = store.New(cliconfig.ContextStoreDir(), cli.contextStoreConfig)
+		// }
 		ctxRaw, err := contextstore.GetContextMetadata(currentContext)
 		if store.IsErrContextDoesNotExist(err) {
 			// case where the currentContext has been removed (CLI behavior is to fallback to using DOCKER_HOST based resolution)
