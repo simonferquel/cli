@@ -3,7 +3,6 @@ package context
 import (
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/docker/cli/cli/command"
@@ -206,7 +205,10 @@ func TestCreateFromCurrent(t *testing.T) {
 		description          string
 		orchestrator         string
 		expectedDescription  string
+		docker               map[string]string
+		kubernetes           map[string]string
 		expectedOrchestrator command.Orchestrator
+		expectedError        string
 	}{
 		{
 			name:                 "no-override",
@@ -225,13 +227,19 @@ func TestCreateFromCurrent(t *testing.T) {
 			expectedDescription:  "original description",
 			expectedOrchestrator: command.OrchestratorKubernetes,
 		},
+		{
+			name:          "error-docker-set",
+			expectedError: "cannot use --docker and --kubernetes flags when --from-current is set",
+			docker:        map[string]string{"key": "value"},
+		},
+		{
+			name:          "error-kubernetes-set",
+			expectedError: "cannot use --docker and --kubernetes flags when --from-current is set",
+			kubernetes:    map[string]string{"key": "value"},
+		},
 	}
-	configDir, err := ioutil.TempDir("", t.Name()+"config")
-	assert.NilError(t, err)
-	defer os.RemoveAll(configDir)
-	configFilePath := filepath.Join(configDir, "config.json")
-	testCfg := configfile.New(configFilePath)
-	cli, cleanup := makeFakeCli(t, withCliConfig(testCfg))
+
+	cli, cleanup := makeFakeCli(t)
 	defer cleanup()
 	revert := env.Patch(t, "KUBECONFIG", "./testdata/test-kubeconfig")
 	defer revert()
@@ -246,16 +254,24 @@ func TestCreateFromCurrent(t *testing.T) {
 		},
 		DefaultStackOrchestrator: "swarm",
 	}))
-	assert.NilError(t, newUseCommand(cli).RunE(nil, []string{"original"}))
+
+	cli.SetCurrentContext("original")
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			assert.NilError(t, RunCreate(cli, &CreateOptions{
+			err := RunCreate(cli, &CreateOptions{
 				FromCurrent:              true,
 				Name:                     c.name,
 				Description:              c.description,
 				DefaultStackOrchestrator: c.orchestrator,
-			}))
+				Docker:                   c.docker,
+				Kubernetes:               c.kubernetes,
+			})
+			if c.expectedError != "" {
+				assert.ErrorContains(t, err, c.expectedError)
+				return
+			}
+			assert.NilError(t, err)
 			newContext, err := cli.ContextStore().GetContextMetadata(c.name)
 			assert.NilError(t, err)
 			newContextTyped, err := command.GetDockerContext(newContext)

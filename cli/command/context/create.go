@@ -64,7 +64,7 @@ func newCreateCommand(dockerCli command.Cli) *cobra.Command {
 		"Default orchestrator for stack operations to use with this context (swarm|kubernetes|all)")
 	flags.StringToStringVar(&opts.Docker, "docker", nil, "set the docker endpoint")
 	flags.StringToStringVar(&opts.Kubernetes, "kubernetes", nil, "set the kubernetes endpoint")
-	flags.BoolVar(&opts.FromCurrent, "from-current", false, "get docker endpoint from current environment variables. Alias from '--docker from-current=true'")
+	flags.BoolVar(&opts.FromCurrent, "from-current", false, "get docker endpoint from current configuration")
 	return cmd
 }
 
@@ -79,6 +79,9 @@ func RunCreate(cli command.Cli, o *CreateOptions) error {
 		return errors.Wrap(err, "unable to parse default-stack-orchestrator")
 	}
 	if o.FromCurrent {
+		if len(o.Docker) != 0 || len(o.Kubernetes) != 0 {
+			return errors.New("cannot use --docker and --kubernetes flags when --from-current is set")
+		}
 		reader := store.Export(cli.CurrentContext(), &descriptionAndOrchestratorStoreDecorator{
 			Store:        s,
 			description:  o.Description,
