@@ -21,6 +21,7 @@ type CreateOptions struct {
 	DefaultStackOrchestrator string
 	Docker                   map[string]string
 	Kubernetes               map[string]string
+	FromCurrent              bool
 }
 
 func longCreateDescription() string {
@@ -63,6 +64,7 @@ func newCreateCommand(dockerCli command.Cli) *cobra.Command {
 		"Default orchestrator for stack operations to use with this context (swarm|kubernetes|all)")
 	flags.StringToStringVar(&opts.Docker, "docker", nil, "set the docker endpoint")
 	flags.StringToStringVar(&opts.Kubernetes, "kubernetes", nil, "set the kubernetes endpoint")
+	flags.BoolVar(&opts.FromCurrent, "from-current", false, "get docker endpoint from current environment variables. Alias from '--docker from-current=true'")
 	return cmd
 }
 
@@ -75,6 +77,15 @@ func RunCreate(cli command.Cli, o *CreateOptions) error {
 	stackOrchestrator, err := command.NormalizeOrchestrator(o.DefaultStackOrchestrator)
 	if err != nil {
 		return errors.Wrap(err, "unable to parse default-stack-orchestrator")
+	}
+	if o.FromCurrent {
+		reader := store.Export(cli.CurrentContext(), &descriptionAndOrchestratorStoreDecorator{
+			Store:        s,
+			description:  o.Description,
+			orchestrator: stackOrchestrator,
+		})
+		defer reader.Close()
+		return store.Import(o.Name, s, reader)
 	}
 	contextMetadata := store.ContextMetadata{
 		Endpoints: make(map[string]interface{}),
@@ -138,4 +149,29 @@ func checkContextNameForCreation(s store.Store, name string) error {
 		return errors.Errorf("context %q already exists", name)
 	}
 	return nil
+}
+
+type descriptionAndOrchestratorStoreDecorator struct {
+	store.Store
+	description  string
+	orchestrator command.Orchestrator
+}
+
+func (d *descriptionAndOrchestratorStoreDecorator) GetContextMetadata(name string) (store.ContextMetadata, error) {
+	c, err := d.Store.GetContextMetadata(name)
+	if err != nil {
+		return c, err
+	}
+	typedContext, err := command.GetDockerContext(c)
+	if err != nil {
+		return c, err
+	}
+	if d.description != "" {
+		typedContext.Description = d.description
+	}
+	if d.orchestrator != command.Orchestrator("") {
+		typedContext.StackOrchestrator = d.orchestrator
+	}
+	c.Metadata = typedContext
+	return c, nil
 }

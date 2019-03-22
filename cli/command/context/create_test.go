@@ -3,6 +3,7 @@ package context
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/docker/cli/cli/command"
@@ -197,4 +198,77 @@ func TestCreateOrchestratorAllKubernetesEndpointFromCurrent(t *testing.T) {
 	defer cleanup()
 	createTestContextWithKube(t, cli)
 	validateTestKubeEndpoint(t, cli.ContextStore(), "test")
+}
+
+func TestCreateFromCurrent(t *testing.T) {
+	cases := []struct {
+		name                 string
+		description          string
+		orchestrator         string
+		expectedDescription  string
+		expectedOrchestrator command.Orchestrator
+	}{
+		{
+			name:                 "no-override",
+			expectedDescription:  "original description",
+			expectedOrchestrator: command.OrchestratorSwarm,
+		},
+		{
+			name:                 "override-description",
+			description:          "new description",
+			expectedDescription:  "new description",
+			expectedOrchestrator: command.OrchestratorSwarm,
+		},
+		{
+			name:                 "override-orchestrator",
+			orchestrator:         "kubernetes",
+			expectedDescription:  "original description",
+			expectedOrchestrator: command.OrchestratorKubernetes,
+		},
+	}
+	configDir, err := ioutil.TempDir("", t.Name()+"config")
+	assert.NilError(t, err)
+	defer os.RemoveAll(configDir)
+	configFilePath := filepath.Join(configDir, "config.json")
+	testCfg := configfile.New(configFilePath)
+	cli, cleanup := makeFakeCli(t, withCliConfig(testCfg))
+	defer cleanup()
+	revert := env.Patch(t, "KUBECONFIG", "./testdata/test-kubeconfig")
+	defer revert()
+	assert.NilError(t, RunCreate(cli, &CreateOptions{
+		Name:        "original",
+		Description: "original description",
+		Docker: map[string]string{
+			keyHost: "tcp://42.42.42.42:2375",
+		},
+		Kubernetes: map[string]string{
+			keyFromCurrent: "true",
+		},
+		DefaultStackOrchestrator: "swarm",
+	}))
+	assert.NilError(t, newUseCommand(cli).RunE(nil, []string{"original"}))
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			assert.NilError(t, RunCreate(cli, &CreateOptions{
+				FromCurrent:              true,
+				Name:                     c.name,
+				Description:              c.description,
+				DefaultStackOrchestrator: c.orchestrator,
+			}))
+			newContext, err := cli.ContextStore().GetContextMetadata(c.name)
+			assert.NilError(t, err)
+			newContextTyped, err := command.GetDockerContext(newContext)
+			assert.NilError(t, err)
+			dockerEndpoint, err := docker.EndpointFromContext(newContext)
+			assert.NilError(t, err)
+			kubeEndpoint := kubernetes.EndpointFromContext(newContext)
+			assert.Check(t, kubeEndpoint != nil)
+			assert.Equal(t, newContextTyped.Description, c.expectedDescription)
+			assert.Equal(t, newContextTyped.StackOrchestrator, c.expectedOrchestrator)
+			assert.Equal(t, dockerEndpoint.Host, "tcp://42.42.42.42:2375")
+			assert.Equal(t, kubeEndpoint.Host, "https://someserver")
+		})
+	}
+
 }
